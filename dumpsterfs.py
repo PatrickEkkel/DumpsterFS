@@ -9,8 +9,6 @@ from interfaces import StorageMethod, DataReaderWriter
 from filesystems import LocalFileSystem
 
 
-
-
 class DumpsterFile:
 
     def __init__(self,file_system, path):
@@ -65,7 +63,6 @@ class DumpsterFS:
         if nbl is not None:
             # location is always text, so utf-8 encode it and send it
             #encoded_header = base64.b64encode(bytearray(nbl = DataBlock.header_end_byte_marker,encoding='utf-8'))
-            print(nbl)
             encoded_header = base64.b64encode(bytearray(nbl + DataBlock.header_end_byte_marker, encoding='utf-8'))
             if len(encoded_header) > block.header_size + len(DataBlock.header_end_byte_marker):
                 raise ValueError('next_block header size to small, increase DataBlock.header_size')
@@ -76,7 +73,6 @@ class DumpsterFS:
 
                 if empty_part != 0:
                     prepared_header = bytearray(prepared_header) + bytearray('\x56',encoding='utf-8') * empty_part
-                #print(base64.b64decode(block.data))
 
         else:
             prepared_header = bytearray('\x56',encoding='utf-8') * (DataBlock.header_size + len(DataBlock.header_end_byte_marker))
@@ -99,7 +95,9 @@ class DumpsterFS:
             block.next_block_location = previous_block_location
             block.data = self._embed_blocklocation(block)
             previous_block_location = self.filesystem.write(block)
-
+        
+        # return the first block location
+        return previous_block_location
 
 
     def create_file(self,path, data):
@@ -108,14 +106,5 @@ class DumpsterFS:
         if type(data) == str:
             bytes = bytearray(data,encoding='utf-8')
             new_file.write(bytes)
-
-
-        self._write_dfs_file(new_file)
-
-
-dumpster_fs = DumpsterFS(LocalFileSystem())
-block = DataBlock(None)
-block.next_block_location = '/tmp/bende/hier/dikkefile'
-#dumpster_fs._embed_blocklocation(block)
-dumpster_fs.create_file('/test','some random string to put in a file')
-#print('\x48')
+            block_start_location = self._write_dfs_file(new_file)
+        print(block_start_location)
