@@ -4,7 +4,7 @@ import os,binascii
 import sys
 import errno
 import numpy as np
-from datatypes import DataBlock
+from datatypes import DataBlock, Index
 from interfaces import StorageMethod, DataReaderWriter
 from filesystems import LocalFileSystem
 
@@ -80,6 +80,8 @@ class DumpsterFS:
         return base64.b64encode(prepared_header) + block.data
 
 
+    def _update_index(self,new_entry):
+        self.filesystem.get_index()
 
 
     def _write_dfs_file(self,dfs_file):
@@ -91,14 +93,18 @@ class DumpsterFS:
         data_blocks = reversed(dfs_file.data_blocks)
         previous_block_location = None
         for block in data_blocks:
-
             block.next_block_location = previous_block_location
             block.data = self._embed_blocklocation(block)
             previous_block_location = self.filesystem.write(block)
-        
+
+
+        self._update_index(previous_block_location)
+
         # return the first block location
         return previous_block_location
 
+    def read_file(self,path,data):
+        pass
 
     def create_file(self,path, data):
         new_file = DumpsterFile(self.filesystem, path)
@@ -107,4 +113,6 @@ class DumpsterFS:
             bytes = bytearray(data,encoding='utf-8')
             new_file.write(bytes)
             block_start_location = self._write_dfs_file(new_file)
-        print(block_start_location)
+
+            # at this point the file is stored in service and we should update the
+            # index

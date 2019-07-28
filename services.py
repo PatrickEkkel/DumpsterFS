@@ -21,5 +21,15 @@ class LocalDataReaderWriter(DataReaderWriter):
 
         return path
 
-    def read_file(self,path, data):
-        pass
+    def read_file(self,path):
+        full_path = self.rootdirectory + path
+
+        if os.path.exists(full_path):
+            file = open(full_path,'r')
+            data  = file.readlines()
+        else:
+            full_path = self.write_file(path,'')
+            print(full_path)
+            data = self.read_file(path)
+
+        return data

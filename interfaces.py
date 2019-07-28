@@ -7,8 +7,9 @@ class DataReaderWriter:
     def write_file(self, path, data):
         pass
 
+
     @abstractmethod
-    def read_file(self, path, data):
+    def read_file(self, path):
         pass
 
 
@@ -21,8 +22,9 @@ class StorageMethod:
     @abstractmethod
     def write(self, dfs_file):
         pass
-
-
+    @abstractmethod
+    def get_index(self):
+        pass
 
     @abstractmethod
     def create_data_block():
