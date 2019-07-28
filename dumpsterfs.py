@@ -55,6 +55,12 @@ class DumpsterFS:
     def connect(self):
         pass
 
+    def _extract_blocklocation(self,block):
+        data = block.data
+        print(data)
+        block_header = data[0:255]
+        print(block_header)
+
     def _embed_blocklocation(self, block):
         data = block.data
         nbl = block.next_block_location
@@ -95,11 +101,15 @@ class DumpsterFS:
             index_location = self.create_file('/.dfs_index',index.to_json(),update_index=False)
             self.filesystem.write_index_location(index_location)
         else:
-            print('lol')
             self._read_dfs_file(initial_data)
 
     def _read_dfs_file(self, location):
         result = DumpsterFile(self.filesystem, None)
+        # get the first datablock so we can start reconstructing the file
+        data_block = self.filesystem.read(location)
+        self._extract_blocklocation(data_block)
+
+
 
         return result
     def _write_dfs_file(self,dfs_file):
