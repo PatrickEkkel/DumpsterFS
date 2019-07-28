@@ -23,7 +23,18 @@ class StorageMethod:
     def write(self, dfs_file):
         pass
     @abstractmethod
-    def get_index(self):
+    def read(self, location):
+        pass
+
+    @abstractmethod
+    def get_index_location(self):
+        pass
+    @abstractmethod
+    def write_index_location(self, location):
+        pass
+        
+    @abstractmethod
+    def create_index(self):
         pass
 
     @abstractmethod

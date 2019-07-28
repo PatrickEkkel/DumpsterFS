@@ -1,3 +1,4 @@
+import json
 class DataBlock:
 
     block_size = 10
@@ -20,9 +21,16 @@ class DataBlock:
 
 class Index:
 
-    def __init__(self):
+    def __init__(self, storage_method):
         self.index_location = None
-        self.storage_method = None
+        self.storage_method = storage_method
+        self.index_dict = {}
+
+    def to_json(self):
+        return json.dumps(self.index_dict)
+
+    def add(self, path, location):
+        self.index_dict[path] = location
 
     def find(self, filename):
         pass

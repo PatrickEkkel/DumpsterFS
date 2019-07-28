@@ -11,12 +11,20 @@ class LocalFileSystem(StorageMethod):
         self.data_reader_writer = LocalDataReaderWriter()
 
     def create_data_block(self):
-        from dumpsterfs import DataBlock
+        from datatypes import DataBlock
         return DataBlock(self)
 
-    def get_index(self):
-        index_file =  self.data_reader_writer.read_file('index')
-
+    def read(self, location):
+        file =  self.data_reader_writer.read_file(location)
+        return file
+    def create_index(self):
+        from datatypes import Index
+        return Index(self)
+    def write_index_location(self, location):
+        self.data_reader_writer.write_file('index', location)
+        
+    def get_index_location(self):
+        index_file  = self.data_reader_writer.read_file('index')
         return index_file
 
     def write(self,data_block):

@@ -1,5 +1,6 @@
 from abc import abstractmethod
 import base64
+import json
 import os,binascii
 import sys
 import errno
@@ -81,9 +82,26 @@ class DumpsterFS:
 
 
     def _update_index(self,new_entry):
-        self.filesystem.get_index()
+        # get the last known location for the index file
+        initial_data = self.filesystem.get_index_location()
+        # no index present, this means this is a blank filesystem, we have to
+        # create an indexfile and store the value in the bootstrap file
+        if not initial_data:
+            # file system initialization, should move to seperate method
+            index_path = '/.dfs_index'
+            index =  self.filesystem.create_index()
+            index.add(index_path,'None')
+            # don't update the index, because it would trigger an infinite loop
+            index_location = self.create_file('/.dfs_index',index.to_json(),update_index=False)
+            self.filesystem.write_index_location(index_location)
+        else:
+            print('lol')
+            self._read_dfs_file(initial_data)
 
+    def _read_dfs_file(self, location):
+        result = DumpsterFile(self.filesystem, None)
 
+        return result
     def _write_dfs_file(self,dfs_file):
         # write the chunks in reversed order, this is easy for later, because the
         # chunks are chained together like a linked list and we we want to read the file, from
@@ -97,22 +115,19 @@ class DumpsterFS:
             block.data = self._embed_blocklocation(block)
             previous_block_location = self.filesystem.write(block)
 
-
-        self._update_index(previous_block_location)
-
         # return the first block location
         return previous_block_location
 
     def read_file(self,path,data):
         pass
 
-    def create_file(self,path, data):
+    def create_file(self,path, data, update_index=True):
         new_file = DumpsterFile(self.filesystem, path)
         # default to utf-8 for all strings
         if type(data) == str:
             bytes = bytearray(data,encoding='utf-8')
             new_file.write(bytes)
             block_start_location = self._write_dfs_file(new_file)
-
-            # at this point the file is stored in service and we should update the
-            # index
+            if update_index:
+                self._update_index(block_start_location)
+            return block_start_location
