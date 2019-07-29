@@ -1,7 +1,7 @@
 from interfaces import StorageMethod
 from services import LocalDataReaderWriter
 
-import os,binascii
+import os, binascii
 
 
 class LocalFileSystem(StorageMethod):
@@ -15,7 +15,7 @@ class LocalFileSystem(StorageMethod):
         return DataBlock(self)
 
     def read(self, location):
-        file =  self.data_reader_writer.read_file(location)
+        file = self.data_reader_writer.read_file(location)
         datablock = self.create_data_block()
         datablock.data = file
         return datablock
@@ -28,9 +28,9 @@ class LocalFileSystem(StorageMethod):
         self.data_reader_writer.write_file('index', location)
 
     def get_index_location(self):
-        index_file  = self.data_reader_writer.read_file('index')
+        index_file = self.data_reader_writer.read_file('index')
         return index_file
 
-    def write(self,data_block):
+    def write(self, data_block):
         filename = binascii.b2a_hex(os.urandom(15))
         return self.data_reader_writer.write_file(str(filename.decode()), data_block.data)
