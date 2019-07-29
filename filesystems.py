@@ -32,5 +32,5 @@ class LocalFileSystem(StorageMethod):
         return index_file
 
     def write(self,data_block):
-        filename = binascii.b2a_hex(os.urandom(8))
+        filename = binascii.b2a_hex(os.urandom(15))
         return self.data_reader_writer.write_file(str(filename.decode()), data_block.data)

@@ -16,9 +16,8 @@ class LocalDataReaderWriter(DataReaderWriter):
     def write_file(self, path, data):
         full_path = self.rootdirectory + path
         self._create_dirs(full_path)
-        print(full_path)
         with open(full_path, "w+") as f:
-            f.write(str(data))
+            f.write(data)
         return path
 
     def read_file(self,path):

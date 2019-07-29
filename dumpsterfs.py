@@ -17,6 +17,12 @@ class DumpsterFile:
         self.filesystem = file_system
         self.path = path
 
+    def get_base64(self):
+        result = ''
+        for block in self.data_blocks:
+            result += block.data
+        return result
+
     def write(self, bytes):
         bytes = base64.b64encode(bytes)
         file_length = len(bytes)
@@ -24,8 +30,9 @@ class DumpsterFile:
         i = 0
         p = 0
         while file_length != 0:
+            file_length -= 1
             # causes typical off by one size difference, but we don't care (for now)
-            if DataBlock.block_size == block_size_counter:
+            if (DataBlock.block_size-1) == block_size_counter:
                 block_size_counter = 0
                 new_data_block = self.filesystem.create_data_block()
                 new_data_block.data = bytes[p:i]
@@ -35,11 +42,13 @@ class DumpsterFile:
             elif file_length < DataBlock.block_size:
                 new_data_block = self.filesystem.create_data_block()
                 self.data_blocks.append(new_data_block)
-                new_data_block.data = bytes[p:i]
+                p = len(bytes) - file_length
+                new_data_block.data = bytes[p:len(bytes)]
+
                 break;
 
             block_size_counter += 1
-            file_length -= 1
+
             i += 1
     def deserialize():
         pass
@@ -57,34 +66,28 @@ class DumpsterFS:
 
     def _extract_blocklocation(self,block):
         data = block.data
-        print(data)
-        block_header = data[0:255]
-        print(block_header)
+        print(base64.b64decode(data))
+        block_data =  base64.b64decode(data).decode().split(DataBlock.header_end_byte_marker)
+        if block_data[0] == 'None':
+            block_data[0] = None
+        return {'header':  block_data[0], 'file_data': block_data[1]}
 
     def _embed_blocklocation(self, block):
         data = block.data
         nbl = block.next_block_location
-        # initialize a fixed length header to 0
-
-        next_block_header =  [] #bytearray(b'\x00') * DataBlock.header_size
         if nbl is not None:
             # location is always text, so utf-8 encode it and send it
-            #encoded_header = base64.b64encode(bytearray(nbl = DataBlock.header_end_byte_marker,encoding='utf-8'))
-            encoded_header = base64.b64encode(bytearray(nbl + DataBlock.header_end_byte_marker, encoding='utf-8'))
-            if len(encoded_header) > block.header_size + len(DataBlock.header_end_byte_marker):
-                raise ValueError('next_block header size to small, increase DataBlock.header_size')
-            else:
-                # all is peachy and we prepend the encoded header to the data part
-                empty_part =  block.header_size - len(encoded_header)
-                prepared_header = base64.b64decode(encoded_header)
-
-                if empty_part != 0:
-                    prepared_header = bytearray(prepared_header) + bytearray('\x56',encoding='utf-8') * empty_part
-
+            encoded_header = base64.b64encode((nbl + DataBlock.header_end_byte_marker).encode('utf-8'))
+            prepared_header = base64.b64decode(encoded_header)
         else:
-            prepared_header = bytearray('\x56',encoding='utf-8') * (DataBlock.header_size + len(DataBlock.header_end_byte_marker))
+            prepared_header = ('None' + DataBlock.header_end_byte_marker).encode('utf-8')
 
-        return base64.b64encode(prepared_header) + block.data
+
+        data_to_write = base64.b64encode(prepared_header + block.data)
+        #print(base64.b64decode(data_to_write).decode())
+
+
+        return base64.b64encode(prepared_header + block.data).decode()
 
 
     def _update_index(self,new_entry):
@@ -106,9 +109,23 @@ class DumpsterFS:
     def _read_dfs_file(self, location):
         result = DumpsterFile(self.filesystem, None)
         # get the first datablock so we can start reconstructing the file
-        data_block = self.filesystem.read(location)
-        self._extract_blocklocation(data_block)
+        first_block = self.filesystem.read(location)
+        formatted_data = self._extract_blocklocation(first_block)
+        first_block.next_block_location = formatted_data['header']
+        first_block.data = formatted_data['file_data']
+        print(first_block.data.decode())
+        result.data_blocks.append(first_block)
 
+        current_block = first_block
+        while current_block.next_block_location:
+            current_block =  self.filesystem.read(current_block.next_block_location)
+            result.data_blocks.append(current_block)
+            formatted_data = self._extract_blocklocation(current_block)
+            current_block.next_block_location = formatted_data['header']
+            current_block.data = formatted_data['file_data']
+            result.data_blocks.append(current_block)
+
+        #print(result.get_base64())
 
 
         return result
@@ -123,6 +140,7 @@ class DumpsterFS:
         for block in data_blocks:
             block.next_block_location = previous_block_location
             block.data = self._embed_blocklocation(block)
+
             previous_block_location = self.filesystem.write(block)
 
         # return the first block location

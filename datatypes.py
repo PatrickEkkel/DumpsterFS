@@ -2,11 +2,10 @@ import json
 class DataBlock:
 
     block_size = 10
-    header_size = 255
     # random set of selected bytes to mark the end of the header useable data
     # prolly a bad idea, we are not going for reliability... if its crap
     # we will find something better
-    header_end_byte_marker = '\x51\x00\x00\x50'
+    header_end_byte_marker = 'F00F'
 
     NEW = 0
     IN_CACHE = 1
