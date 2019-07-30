@@ -59,6 +59,7 @@ class DumpsterFS:
         json_index = base64.b64decode(dfs_handle.get_base64())
         index = self.filesystem.create_index()
         index.index = Index.from_json(json_index)
+        file.lstat['st_size'] = file.length
         index.add(file.path, file.block_start_location)
         index.add_info(file.path, file.lstat)
         index_location = self.write_file('/.dfs_index', index.to_json(), update_index=False)
@@ -157,8 +158,8 @@ class DumpsterFS:
             bytes = bytearray(data, encoding='utf-8')
             new_file.write(bytes)
         elif is_bytes(data):
-            print('jeej bytes')
             new_file.write(data)
+
 
         new_file.block_start_location = self._write_dfs_file(new_file)
 

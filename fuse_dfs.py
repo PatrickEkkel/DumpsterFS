@@ -98,18 +98,23 @@ class FuseDFS(LoggingMixIn, Operations):
             'f_frsize', 'f_namemax'))
 
     def unlink(self, path):
+        print('unlink')
         return os.unlink(self._full_path(path))
 
     def symlink(self, name, target):
+        print('symlink')
         return os.symlink(name, self._full_path(target))
 
     def rename(self, old, new):
+        print('rename')
         return os.rename(self._full_path(old), self._full_path(new))
 
     def link(self, target, name):
+        print('link')
         return os.link(self._full_path(target), self._full_path(name))
 
     def utimens(self, path, times=None):
+        print('utimens')
         return os.utime(self._full_path(path), times)
 
     # File methods
@@ -117,48 +122,39 @@ class FuseDFS(LoggingMixIn, Operations):
 
     def open(self, path, flags):
         self.fd += 1
-        logger.debug(f'open: ' + path)
+        logger.debug(f'open: path: {path}')
         return self.fd
 
     def create(self, path, mode, fi=None):
         self.fd += 1
-        logger.debug(f'create: {path} fd: {self.fd} ')
+        logger.debug(f'create: path: {path} fd: {self.fd} ')
         self.dfs.create_new_file(path)
         return self.fd
 
     def read(self, path, length, offset, fh):
 
         #if length and offset:
-        logger.debug(f'read: {path} {length} {offset}')
+        logger.debug(f'read: path: {path}  length: {length} offset: {offset}')
         #else:
         #    logger.debug(f'read: {path} ')
 
         result = self.dfs.read_file(path)
         if result is None:
             return []
+
+        return result
+        #return result
         #os.lseek(fh, offset, os.SEEK_SET)
         #return os.read(fh, length)
 
     def write(self, path, buf, offset, fh):
-        logger.debug(f' write: {path} {offset}')
-        #print(buf)
-        #print(offset)
-        print(type(buf))
-        self.dfs.write_file(path, buf,update_index=False)
-        #os.lseek(fh, offset, os.SEEK_SET)
-        #return os.write(fh, buf)
+        buffer_length = len(buf)
+        logger.debug(f' write: path: {path} offset: {offset} buf_len: {buffer_length}')
+        self.dfs.write_file(path, buf)
         return len(buf)
+
     def truncate(self, path, length, fh=None):
         print('truncate')
-        #full_path = self._full_path(path)
-        #with open(full_path, 'r+') as f:
-        #    f.truncate(length)
-
-    # disable flush, there is no need to do writebacks and file cleanup
-    #def flush(self, path, fh):
-
-        #print(fh)
-        #return os.fsync(fh)
 
     def release(self, path, fh):
         logger.debug(f' release: {path}')

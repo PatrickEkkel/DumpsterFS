@@ -80,7 +80,7 @@ class DumpsterNode:
         pass
 class DataBlock:
 
-    block_size = 10
+    block_size = 100
     # random set of selected bytes to mark the end of the header useable data
     # prolly a bad idea, we are not going for reliability... if its crap
     # we will find something better
@@ -108,6 +108,7 @@ class DataBlock:
             prepared_header = base64.b64decode(encoded_header)
         else:
             prepared_header = ('None' + DataBlock.header_end_byte_marker).encode('utf-8')
+
         return base64.b64encode(prepared_header + block.data).decode()
 
     def __init__(self, storage_method):
@@ -122,7 +123,7 @@ class Index:
     def __init__(self, storage_method):
         self.index_location = None
         self.storage_method = storage_method
-        self.index = {'index_dict': {}, 'lstat_dict': {},'directory_dict': {}}
+        self.index = {'index_dict': {}, 'lstat_dict': {}}
 
 
     def to_json(self):
@@ -139,7 +140,6 @@ class Index:
 
     def add(self, path, location):
         self.index['index_dict'][path] = location
-        self.index['directory_dict'][os.path.dirname(path)] = ntpath.basename(path)
 
 
     def info(self, path):
