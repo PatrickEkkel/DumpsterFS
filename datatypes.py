@@ -13,6 +13,7 @@ class DumpsterNode:
         self.filesystem = file_system
         self.block_start_location = None
         self.path = path
+        self.length = 0
 
 
         self.lstat = fuse_helpers.create_lstat(node_type=node_type)
@@ -49,6 +50,7 @@ class DumpsterNode:
 
         b64_encoded_bytes = base64.b64encode(file_bytes)
         file_length = len(b64_encoded_bytes)
+        self.length = file_length
         block_size_counter = 0
         i = 0
         p = 0

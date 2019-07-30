@@ -3,19 +3,30 @@ from __future__ import with_statement
 
 from dumpsterfs import DumpsterFS
 from filesystems import LocalFileSystem
-
+import logging
 import os
 import sys
 import errno
 
-from fuse import FUSE, FuseOSError, Operations
+from fuse import FUSE, FuseOSError, Operations,  LoggingMixIn
 from errno import ENOENT
 
+logger = logging.getLogger(__name__)
+logger.setLevel(logging.DEBUG)
 
-class FuseDFS(Operations):
+ch = logging.StreamHandler(sys.stdout)
+ch.setLevel(logging.DEBUG)
+formatter = logging.Formatter('%(asctime)s - %(name)s - %(levelname)s - %(message)s')
+ch.setFormatter(formatter)
+logger.addHandler(ch)
+
+
+
+class FuseDFS(LoggingMixIn, Operations):
     def __init__(self, root):
         self.root = root
         self.dfs = DumpsterFS(LocalFileSystem())
+        self.fd = 0
 
     # Helpers
     # =======
@@ -39,21 +50,19 @@ class FuseDFS(Operations):
         pass
 
     def getattr(self, path, fh=None):
-        print('getattr')
-        print(path)
         result  = self.dfs.get_file_info(path)
-        print(result)
         if not result:
             raise FuseOSError(ENOENT)
+
+        logger.debug(f'getattr: {result}')
+
         return result
 
 
     def readdir(self, path, fh):
-        full_path = self._full_path(path)
-        print('readdir')
-        print(path)
         dirents = ['.', '..']
         dirents.extend(self.dfs.list_dir(path))
+        #logger.debug(f'readdir: {dirents}')
         for r in dirents:
             yield r
 
@@ -69,7 +78,7 @@ class FuseDFS(Operations):
 
     def mknod(self, path, mode, dev):
         print('mknod')
-        print(path)
+        print   (path)
         return os.mknod(self._full_path(path), mode, dev)
 
     def rmdir(self, path):
@@ -77,8 +86,8 @@ class FuseDFS(Operations):
         return os.rmdir(full_path)
 
     def mkdir(self, path, mode):
-        print('mkdir')
-        self.dfs.create_dir(path)
+        result = self.dfs.create_dir(path)
+        logger.debug(f'mkdir: {result} ')
 
     def statfs(self, path):
         print('statfs')
@@ -107,37 +116,52 @@ class FuseDFS(Operations):
     # ============
 
     def open(self, path, flags):
-        print('open')
-        full_path = self._full_path(path)
-        return os.open(full_path, flags)
+        self.fd += 1
+        logger.debug(f'open: ' + path)
+        return self.fd
 
     def create(self, path, mode, fi=None):
-        full_path = self._full_path(path)
-        return os.open(full_path, os.O_WRONLY | os.O_CREAT, mode)
+        self.fd += 1
+        logger.debug(f'create: {path} fd: {self.fd} ')
+        self.dfs.create_new_file(path)
+        return self.fd
 
     def read(self, path, length, offset, fh):
-        print('read')
-        os.lseek(fh, offset, os.SEEK_SET)
-        return os.read(fh, length)
+
+        #if length and offset:
+        logger.debug(f'read: {path} {length} {offset}')
+        #else:
+        #    logger.debug(f'read: {path} ')
+
+        result = self.dfs.read_file(path)
+        if result is None:
+            return []
+        #os.lseek(fh, offset, os.SEEK_SET)
+        #return os.read(fh, length)
 
     def write(self, path, buf, offset, fh):
-        os.lseek(fh, offset, os.SEEK_SET)
-        return os.write(fh, buf)
-
+        logger.debug(f' write: {path} {offset}')
+        #print(buf)
+        #print(offset)
+        print(type(buf))
+        self.dfs.write_file(path, buf,update_index=False)
+        #os.lseek(fh, offset, os.SEEK_SET)
+        #return os.write(fh, buf)
+        return len(buf)
     def truncate(self, path, length, fh=None):
-        full_path = self._full_path(path)
-        with open(full_path, 'r+') as f:
-            f.truncate(length)
+        print('truncate')
+        #full_path = self._full_path(path)
+        #with open(full_path, 'r+') as f:
+        #    f.truncate(length)
 
-    def flush(self, path, fh):
-        print('flush')
-        return os.fsync(fh)
+    # disable flush, there is no need to do writebacks and file cleanup
+    #def flush(self, path, fh):
+
+        #print(fh)
+        #return os.fsync(fh)
 
     def release(self, path, fh):
-        return os.close(fh)
-
-    def fsync(self, path, fdatasync, fh):
-        return self.flush(path, fh)
+        logger.debug(f' release: {path}')
 
 
 def main():
