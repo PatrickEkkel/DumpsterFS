@@ -124,22 +124,30 @@ class DumpsterFS:
         result = []
         index = self._get_index()
         file_info = self.get_file_info(path)
-        if file_info and file_info['st_mode'] == fuse_helpers.S_IFDIR:
-            for file in index.index['index_dict']:
-                if file.startswith(path) and file != path and file != '/.dfs_index':
-                    sanitized_filename = file[1:]
-                    result.append(sanitized_filename)
+        #if file_info and file_info['st_mode'] == fuse_helpers.S_IFDIR:
+        for file in index.index['index_dict']:
+            if file.startswith(path) and file != path and file != '/.dfs_index':
+                    #sanitized_filename = file.split(path)
+                    # remove first slash
+                    # root is special case
+                if path == '/':
+                      dir_name = file.split('/')[1]
 
-            #    pass
-            #if file_info['st_mode'] == fuse_helpers.IS_DIR
+                else:
+                    # truncate the part that is being requested, and get the right hand side
+                    truncated_path = file.replace(path,'').split('/')[1]
+                    dir_name = truncated_path
+                if dir_name not in result:
+                    result.append(dir_name)
         return result
 
 
 
     def create_dir(self, path, update_index=True):
+
         new_dir = DumpsterNode(self.filesystem, path, node_type=fuse_helpers.S_IFDIR)
-        if update_index:
-            return self._update_index(new_dir)
+        return self._update_index(new_dir)
+
 
     def create_file(self, path, data, update_index=True):
         new_file = DumpsterNode(self.filesystem, path)

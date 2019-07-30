@@ -54,8 +54,6 @@ class FuseDFS(Operations):
         print(path)
         dirents = ['.', '..']
         dirents.extend(self.dfs.list_dir(path))
-        print(dirents)
-        print(os.listdir(full_path))
         for r in dirents:
             yield r
 

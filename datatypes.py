@@ -2,6 +2,8 @@ import base64
 import json
 import time
 import fuse_helpers
+import ntpath
+import os
 
 
 class DumpsterNode:
@@ -118,7 +120,7 @@ class Index:
     def __init__(self, storage_method):
         self.index_location = None
         self.storage_method = storage_method
-        self.index = {'index_dict': {}, 'lstat_dict': {}}
+        self.index = {'index_dict': {}, 'lstat_dict': {},'directory_dict': {}}
 
 
     def to_json(self):
@@ -132,8 +134,11 @@ class Index:
     def add_info(self, path, info):
         self.index['lstat_dict'][path] = info
 
+
     def add(self, path, location):
         self.index['index_dict'][path] = location
+        self.index['directory_dict'][os.path.dirname(path)] = ntpath.basename(path)
+
 
     def info(self, path):
         return self.index_dict['lstat_dict'][path]
