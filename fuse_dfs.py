@@ -9,11 +9,13 @@ import sys
 import errno
 
 from fuse import FUSE, FuseOSError, Operations
+from errno import ENOENT
 
 
 class FuseDFS(Operations):
     def __init__(self, root):
         self.root = root
+        self.dfs = DumpsterFS(LocalFileSystem())
 
     # Helpers
     # =======
@@ -27,9 +29,6 @@ class FuseDFS(Operations):
     # Filesystem methods
     # ==================
 
-    def access(self, path, mode):
-        # rights are not something we care about at the moment therefore, just pass
-        pass
 
     def chmod(self, path, mode):
         # rights are not something we care about at the moment therefore, just pass
@@ -42,22 +41,27 @@ class FuseDFS(Operations):
     def getattr(self, path, fh=None):
         print('getattr')
         print(path)
-        full_path = self._full_path(path)
-        st = os.lstat(full_path)
-        print(st)
-        return dict((key, getattr(st, key)) for key in ('st_atime', 'st_ctime',
-                     'st_gid', 'st_mode', 'st_mtime', 'st_nlink', 'st_size', 'st_uid'))
+        result  = self.dfs.get_file_info(path)
+        print(result)
+        if not result:
+            raise FuseOSError(ENOENT)
+        return result
+
 
     def readdir(self, path, fh):
         full_path = self._full_path(path)
-
+        print('readdir')
+        print(path)
         dirents = ['.', '..']
-        if os.path.isdir(full_path):
-            dirents.extend(os.listdir(full_path))
+        dirents.extend(self.dfs.list_dir(path))
+        print(dirents)
+        print(os.listdir(full_path))
         for r in dirents:
             yield r
 
+
     def readlink(self, path):
+        print('readlink')
         pathname = os.readlink(self._full_path(path))
         if pathname.startswith("/"):
             # Path name is absolute, sanitize it.
@@ -66,6 +70,8 @@ class FuseDFS(Operations):
             return pathname
 
     def mknod(self, path, mode, dev):
+        print('mknod')
+        print(path)
         return os.mknod(self._full_path(path), mode, dev)
 
     def rmdir(self, path):
@@ -73,9 +79,11 @@ class FuseDFS(Operations):
         return os.rmdir(full_path)
 
     def mkdir(self, path, mode):
-        return os.mkdir(self._full_path(path), mode)
+        print('mkdir')
+        self.dfs.create_dir(path)
 
     def statfs(self, path):
+        print('statfs')
         full_path = self._full_path(path)
         stv = os.statvfs(full_path)
         return dict((key, getattr(stv, key)) for key in ('f_bavail', 'f_bfree',
@@ -101,6 +109,7 @@ class FuseDFS(Operations):
     # ============
 
     def open(self, path, flags):
+        print('open')
         full_path = self._full_path(path)
         return os.open(full_path, flags)
 
@@ -109,6 +118,7 @@ class FuseDFS(Operations):
         return os.open(full_path, os.O_WRONLY | os.O_CREAT, mode)
 
     def read(self, path, length, offset, fh):
+        print('read')
         os.lseek(fh, offset, os.SEEK_SET)
         return os.read(fh, length)
 
@@ -122,6 +132,7 @@ class FuseDFS(Operations):
             f.truncate(length)
 
     def flush(self, path, fh):
+        print('flush')
         return os.fsync(fh)
 
     def release(self, path, fh):

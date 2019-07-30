@@ -1,12 +1,26 @@
 import base64
 import json
+import time
+import fuse_helpers
 
-class DumpsterFile:
 
-    def __init__(self, file_system, path):
+class DumpsterNode:
+
+    def __init__(self, file_system, path, node_type=33204):
         self.data_blocks = []
         self.filesystem = file_system
+        self.block_start_location = None
         self.path = path
+
+
+        self.lstat = fuse_helpers.create_lstat(node_type=node_type)
+        #self.lstat = {'st_atime': '',
+        #'st_ctime': '',
+        #              'st_gid': 1000,
+        #              'st_mode': node_type,
+        #              'st_mtime': '',
+        #              'st_nlink': 1,  # 1 because we don't support symlinks
+        #              'st_uid': 1000}
 
     def get_base64(self):
         result = ''
@@ -14,9 +28,25 @@ class DumpsterFile:
             result += block.data
         return result
 
-    def write(self, bytes):
-        bytes = base64.b64encode(bytes)
-        file_length = len(bytes)
+    def set_file_creation_time(self, time):
+        self.lstat['st_ctime'] = time
+
+    def set_file_modification_time(self, time):
+        self.lstat['st_mtime'] = time
+
+    def set_file_access_time(self, time):
+        self.lstat['st_atime'] = time
+
+    def write(self, file_bytes):
+
+        creation_time = time.time()
+
+        self.set_file_access_time(creation_time)
+        self.set_file_creation_time(creation_time)
+        self.set_file_modification_time(creation_time)
+
+        b64_encoded_bytes = base64.b64encode(file_bytes)
+        file_length = len(b64_encoded_bytes)
         block_size_counter = 0
         i = 0
         p = 0
@@ -26,14 +56,14 @@ class DumpsterFile:
             if (DataBlock.block_size - 1) == block_size_counter:
                 block_size_counter = 0
                 new_data_block = self.filesystem.create_data_block()
-                new_data_block.data = bytes[p:i]
+                new_data_block.data = b64_encoded_bytes[p:i]
                 self.data_blocks.append(new_data_block)
                 p = i
                 # get the last part of the file that doesn't fit max block_size
                 if file_length < DataBlock.block_size:
                     new_data_block = self.filesystem.create_data_block()
-                    p = len(bytes) - file_length
-                    new_data_block.data = bytes[p:len(bytes)]
+                    p = len(b64_encoded_bytes) - file_length
+                    new_data_block.data = b64_encoded_bytes[p:len(b64_encoded_bytes)]
                     self.data_blocks.append(new_data_block)
             block_size_counter += 1
             file_length -= 1
@@ -89,8 +119,7 @@ class Index:
         self.index_location = None
         self.storage_method = storage_method
         self.index = {'index_dict': {}, 'lstat_dict': {}}
-        self.index_dict = {}
-        self.lstat_dict = {}
+
 
     def to_json(self):
         return json.dumps(self.index)
@@ -100,9 +129,14 @@ class Index:
     def from_json(json_string):
         return json.loads(json_string)
 
+    def add_info(self, path, info):
+        self.index['lstat_dict'][path] = info
+
     def add(self, path, location):
         self.index['index_dict'][path] = location
-        self.index['lstat_dict'][path] = {}
 
-    def find(self, path):
-            return self.index['index_dict'][path]
+    def info(self, path):
+        return self.index_dict['lstat_dict'][path]
+
+    def find(self, path, search_in='index_dict'):
+            return self.index[search_in].get(path) #[path]

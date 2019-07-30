@@ -22,7 +22,7 @@ class LocalDataReaderWriter(DataReaderWriter):
 
     def read_file(self,path):
         full_path = self.rootdirectory + path
-
+        
         if os.path.exists(full_path):
             file = open(full_path,'r')
             data  =  ''.join(file.readlines())
