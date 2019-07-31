@@ -12,7 +12,7 @@ apt-get install pip3
 pip3 install fusepy  
 pip3 install numpy  
 
-git clone this repository and start fuse_dfs.py   
+git clone this repository and start with `python3 fuse_dfs.py /your_mount_point/`    
 
 I have not tested it anywhere else besides my laptop, so i could be missing something.   
 
