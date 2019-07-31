@@ -37,6 +37,19 @@ class DumpsterFS:
             self.filesystem.write_index_location(index_location)
         return index_location
 
+    def set_file_info(self,path,key, value):
+
+        index_location = self._init_filesystem()
+        dfs_handle = self._read_dfs_file(index_location)
+        json_index = base64.b64decode(dfs_handle.get_base64())
+        index = self.filesystem.create_index()
+
+        index.index = Index.from_json(json_index)
+        index.index['lstat_dict'][path][key] = value
+
+        index_location = self.write_file('/.dfs_index', index.to_json(), update_index=False)
+        self.filesystem.write_index_location(index_location)
+
     def get_file_info(self, path):
         index = self._get_index()
         return index.find(path, search_in='lstat_dict')

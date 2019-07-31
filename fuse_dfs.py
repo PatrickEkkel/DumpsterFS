@@ -6,6 +6,7 @@ from filesystems import LocalFileSystem
 import logging
 import os
 import sys
+import time
 import errno
 
 from fuse import FUSE, FuseOSError, Operations,  LoggingMixIn
@@ -105,8 +106,11 @@ class FuseDFS(LoggingMixIn, Operations):
         return os.link(self._full_path(target), self._full_path(name))
 
     def utimens(self, path, times=None):
-        print('utimens')
-        return os.utime(self._full_path(path), times)
+        logger.debug(f'utimes:  path:  {path} times: {times}')
+        now = time.time()
+        atime, mtime = times if times else (now, now)
+        self.dfs.set_file_info(path,'st_atime',atime)
+        self.dfs.set_file_info(path,'st_mtime',mtime)
 
     # File methods
     # ============
