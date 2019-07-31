@@ -23,19 +23,9 @@ logger.addHandler(ch)
 
 
 class FuseDFS(LoggingMixIn, Operations):
-    def __init__(self, root):
-        self.root = root
+    def __init__(self):
         self.dfs = DumpsterFS(LocalFileSystem())
         self.fd = 0
-
-    # Helpers
-    # =======
-
-    def _full_path(self, partial):
-        if partial.startswith("/"):
-            partial = partial[1:]
-        path = os.path.join(self.root, partial)
-        return path
 
     # Filesystem methods
     # ==================
@@ -68,6 +58,7 @@ class FuseDFS(LoggingMixIn, Operations):
 
 
     def readlink(self, path):
+        # TODO implement
         print('readlink')
         pathname = os.readlink(self._full_path(path))
         if pathname.startswith("/"):
@@ -160,8 +151,8 @@ class FuseDFS(LoggingMixIn, Operations):
         logger.debug(f' release: {path}')
 
 
-def main():
-    FUSE(FuseDFS('/home/patrick/fuse_test'), '/home/patrick/External', nothreads=True, foreground=True)
+def main(mount_point):
+    FUSE(FuseDFS(), mount_point, nothreads=True, foreground=True)
 
 if __name__ == '__main__':
-    main()
+    main(sys.argv[1])
