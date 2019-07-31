@@ -118,6 +118,11 @@ class DataBlock:
 
         return base64.b64encode(prepared_header + block.data).decode()
 
+    def update_block_info(self):
+        formatted_data = DataBlock.extract_block_location(self)
+        self.next_block_location = formatted_data['header']
+        self.data = formatted_data['file_data']
+
     def __init__(self, storage_method):
         self.next_block_location = None
         self.storage_method = storage_method

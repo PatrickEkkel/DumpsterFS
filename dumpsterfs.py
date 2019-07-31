@@ -38,17 +38,9 @@ class DumpsterFS:
         return index_location
 
     def set_file_info(self,path,key, value):
-
-        index_location = self._init_filesystem()
-        dfs_handle = self._read_dfs_file(index_location)
-        json_index = base64.b64decode(dfs_handle.get_base64())
-        index = self.filesystem.create_index()
-
-        index.index = Index.from_json(json_index)
+        index = self._get_index()
         index.index['lstat_dict'][path][key] = value
-
-        index_location = self.write_file('/.dfs_index', index.to_json(), update_index=False)
-        self.filesystem.write_index_location(index_location)
+        self._update_index(index)
 
     def get_file_info(self, path):
         index = self._get_index()
@@ -63,40 +55,32 @@ class DumpsterFS:
         index.index = Index.from_json(json_index)
         return index
 
-    def _update_index(self, file):
-        # guarantees that the filesystem is ready for use
-
-        index_location = self._init_filesystem()
-
-        dfs_handle = self._read_dfs_file(index_location)
-        json_index = base64.b64decode(dfs_handle.get_base64())
-        index = self.filesystem.create_index()
-        index.index = Index.from_json(json_index)
-        file.lstat['st_size'] = file.length
-        index.add(file.path, file.block_start_location)
-        index.add_info(file.path, file.lstat)
+    def _update_index(self, index):
         index_location = self.write_file('/.dfs_index', index.to_json(), update_index=False)
         self.filesystem.write_index_location(index_location)
         return index_location
 
-    def _update_block_info(self, current_block):
-        formatted_data = DataBlock.extract_block_location(current_block)
-        current_block.next_block_location = formatted_data['header']
-        current_block.data = formatted_data['file_data']
+    def _add_filenode_to_index(self, file):
+        index = self._get_index()
+        file.lstat['st_size'] = file.length
+        index.add(file.path, file.block_start_location)
+        index.add_info(file.path, file.lstat)
+        return self._update_index(index)
+
 
     def _read_dfs_file(self, location):
         result = DumpsterNode(self.filesystem, None)
         # get the first datablock so we can start reconstructing the file
         first_block = self.filesystem.read(location)
         if first_block:
-            self._update_block_info(first_block)
+            first_block.update_block_info()
             result.data_blocks.append(first_block)
 
             current_block = first_block
             if current_block.next_block_location:
                 while True:
                     current_block = self.filesystem.read(current_block.next_block_location)
-                    self._update_block_info(current_block)
+                    current_block.update_block_info()
                     result.data_blocks.append(current_block)
 
                     if not current_block.next_block_location:
@@ -158,7 +142,7 @@ class DumpsterFS:
     def create_dir(self, path, update_index=True):
 
         new_dir = DumpsterNode(self.filesystem, path, node_type=fuse_helpers.S_IFDIR)
-        return self._update_index(new_dir)
+        return self._add_filenode_to_index(new_dir)
 
     def create_new_file(self, path, update_index=True):
         return self.write_file(path, '', update_index)
@@ -174,6 +158,6 @@ class DumpsterFS:
 
         new_file.block_start_location = self._write_dfs_file(new_file)
         if update_index:
-            self._update_index(new_file)
+            self._add_filenode_to_index (new_file)
 
         return new_file.block_start_location
