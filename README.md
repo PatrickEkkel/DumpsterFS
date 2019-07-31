@@ -5,7 +5,7 @@ Portable filesystem that is designed to be compatible with services like Hastebi
 
 At this moment i have no build system in place, so if you want to run it install the following.
 
-for Ubuntu
+for Ubuntu  
 apt-get install Python3.7  
 apt-get install pip3  
 
