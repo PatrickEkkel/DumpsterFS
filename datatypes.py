@@ -54,24 +54,31 @@ class DumpsterNode:
         block_size_counter = 0
         i = 0
         p = 0
-        while file_length != 0:
 
-            # causes typical off by one size difference, but we don't care (for now)
-            if (DataBlock.block_size - 1) == block_size_counter:
-                block_size_counter = 0
-                new_data_block = self.filesystem.create_data_block()
-                new_data_block.data = b64_encoded_bytes[p:i]
-                self.data_blocks.append(new_data_block)
-                p = i
-                # get the last part of the file that doesn't fit max block_size
-                if file_length < DataBlock.block_size:
+        if file_length < DataBlock.block_size and file_length != 0:
+            new_data_block = self.filesystem.create_data_block()
+            new_data_block.data = b64_encoded_bytes[0:file_length]
+            self.data_blocks.append(new_data_block)
+        else:
+
+            while file_length != 0:
+
+                # causes typical off by one size difference, but we don't care (for now)
+                if (DataBlock.block_size - 1) == block_size_counter:
+                    block_size_counter = 0
                     new_data_block = self.filesystem.create_data_block()
-                    p = len(b64_encoded_bytes) - file_length
-                    new_data_block.data = b64_encoded_bytes[p:len(b64_encoded_bytes)]
+                    new_data_block.data = b64_encoded_bytes[p:i]
                     self.data_blocks.append(new_data_block)
-            block_size_counter += 1
-            file_length -= 1
-            i += 1
+                    p = i
+                    # get the last part of the file that doesn't fit max block_size
+                    if file_length < DataBlock.block_size:
+                        new_data_block = self.filesystem.create_data_block()
+                        p = len(b64_encoded_bytes) - file_length
+                        new_data_block.data = b64_encoded_bytes[p:len(b64_encoded_bytes)]
+                        self.data_blocks.append(new_data_block)
+                block_size_counter += 1
+                file_length -= 1
+                i += 1
 
     def deserialize(self):
         pass
@@ -80,7 +87,7 @@ class DumpsterNode:
         pass
 class DataBlock:
 
-    block_size = 100
+    block_size = 1000
     # random set of selected bytes to mark the end of the header useable data
     # prolly a bad idea, we are not going for reliability... if its crap
     # we will find something better

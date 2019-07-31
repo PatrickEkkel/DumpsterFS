@@ -31,7 +31,7 @@ class DumpsterFS:
             index = self.filesystem.create_index()
             index.add(index_path, 'None')
             index.add(root, 'None')
-            index.add_info('/', fuse_helpers.create_lstat(S_IFDIR,st_nlink=3))
+            index.add_info('/', fuse_helpers.create_lstat(S_IFDIR, st_nlink=3))
             # don't update the index, because it would trigger an infinite loop
             index_location = self.write_file('/.dfs_index', index.to_json(), update_index=False)
             self.filesystem.write_index_location(index_location)
@@ -75,20 +75,19 @@ class DumpsterFS:
         result = DumpsterNode(self.filesystem, None)
         # get the first datablock so we can start reconstructing the file
         first_block = self.filesystem.read(location)
+        if first_block:
+            self._update_block_info(first_block)
+            result.data_blocks.append(first_block)
 
-        self._update_block_info(first_block)
-        result.data_blocks.append(first_block)
+            current_block = first_block
+            if current_block.next_block_location:
+                while True:
+                    current_block = self.filesystem.read(current_block.next_block_location)
+                    self._update_block_info(current_block)
+                    result.data_blocks.append(current_block)
 
-        current_block = first_block
-
-        while True:
-            current_block = self.filesystem.read(current_block.next_block_location)
-            self._update_block_info(current_block)
-            result.data_blocks.append(current_block)
-
-            if not current_block.next_block_location:
-                break
-
+                    if not current_block.next_block_location:
+                        break
         return result
 
     def _write_dfs_file(self, dfs_file):
@@ -126,18 +125,18 @@ class DumpsterFS:
         result = []
         index = self._get_index()
         file_info = self.get_file_info(path)
-        #if file_info and file_info['st_mode'] == fuse_helpers.S_IFDIR:
+        # if file_info and file_info['st_mode'] == fuse_helpers.S_IFDIR:
         for file in index.index['index_dict']:
             if file.startswith(path) and file != path and file != '/.dfs_index':
-                    #sanitized_filename = file.split(path)
-                    # remove first slash
-                    # root is special case
+                # sanitized_filename = file.split(path)
+                # remove first slash
+                # root is special case
                 if path == '/':
-                      dir_name = file.split('/')[1]
+                    dir_name = file.split('/')[1]
 
                 else:
                     # truncate the part that is being requested, and get the right hand side
-                    truncated_path = file.replace(path,'').split('/')[1]
+                    truncated_path = file.replace(path, '').split('/')[1]
                     dir_name = truncated_path
                 if dir_name not in result:
                     result.append(dir_name)
@@ -148,8 +147,8 @@ class DumpsterFS:
         new_dir = DumpsterNode(self.filesystem, path, node_type=fuse_helpers.S_IFDIR)
         return self._update_index(new_dir)
 
-    def create_new_file(self,path,update_index=True):
-        return self.write_file(path,'',update_index)
+    def create_new_file(self, path, update_index=True):
+        return self.write_file(path, '', update_index)
 
     def write_file(self, path, data, update_index=True):
         new_file = DumpsterNode(self.filesystem, path)
@@ -160,10 +159,7 @@ class DumpsterFS:
         elif is_bytes(data):
             new_file.write(data)
 
-
         new_file.block_start_location = self._write_dfs_file(new_file)
-
-
         if update_index:
             self._update_index(new_file)
 

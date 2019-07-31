@@ -1,5 +1,7 @@
 import os, errno
 from interfaces import DataReaderWriter
+
+
 class LocalDataReaderWriter(DataReaderWriter):
 
     def __init__(self):
@@ -9,7 +11,7 @@ class LocalDataReaderWriter(DataReaderWriter):
         if not os.path.exists(os.path.dirname(path)):
             try:
                 os.makedirs(os.path.dirname(path))
-            except OSError as exc: # Guard against race condition
+            except OSError as exc:  # Guard against race condition
                 if exc.errno != errno.EEXIST:
                     raise
 
@@ -20,14 +22,14 @@ class LocalDataReaderWriter(DataReaderWriter):
             f.write(str(data))
         return path
 
-    def read_file(self,path):
+    def read_file(self, path):
         full_path = self.rootdirectory + path
 
         if os.path.exists(full_path):
-            file = open(full_path,'r')
-            data  =  ''.join(file.readlines())
+            file = open(full_path, 'r')
+            data = ''.join(file.readlines())
         else:
-            self.write_file(path,'')
+            self.write_file(path, '')
             data = self.read_file(path)
 
         return data
