@@ -3,7 +3,7 @@
 
 Portable filesystem that is designed to be compatible with services like Hastebin, Github, Pastebin and other services that allow uploading text files. 
 
-At this moment i have build system in place, so if you want to run it install the following 
+At this moment i have no build system in place, so if you want to run it install the following 
 
 for Ubuntu
 apt-get install Python3.7 
