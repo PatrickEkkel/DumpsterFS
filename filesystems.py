@@ -1,7 +1,9 @@
-from interfaces import StorageMethod
+from interfaces import StorageMethod, CachingMethod
 from services import LocalDataReaderWriter
+from datatypes import FileHandle, DumpsterNode
 
-import os, binascii
+import os
+import binascii
 
 
 class InMemoryFileSystem(StorageMethod):
@@ -28,11 +30,38 @@ class InMemoryFileSystem(StorageMethod):
         self.storage[filename.decode()] = data_block.data
         return filename.decode()
 
+
+class LocalFileCache(CachingMethod):
+
+    def write(self, data, bp, fh):
+        filename = f'cachefile__{fh}__{bp}'
+        self.data_reader_writer.write_file(filename,data)
+
+    def read(self, data, bp, fh):
+        filename = f'cachefile__{fh}__{bp}'
+        self.data_reader_writer.read_file(filename)
+
+    def __init__(self):
+        CachingMethod.__init__(self)
+        self.data_reader_writer = LocalDataReaderWriter()
+
+
 class LocalFileSystem(StorageMethod):
+
+    def create_new_file_handle(self, path, type):
+        self.fd += 1
+        new_fh = FileHandle(self.fd, DumpsterNode(self, path, type))
+        self.open_file_handles[self.fd] = new_fh
+        return new_fh
+
+    def get_file_handle(self, fd):
+        return self.open_file_handles.get(fd)
 
     def __init__(self):
         super(StorageMethod).__init__()
         self.data_reader_writer = LocalDataReaderWriter()
+        self.fd = 0
+        self.open_file_handles = {}
 
     def read(self, location):
         file = self.data_reader_writer.read_file(location)

@@ -144,7 +144,7 @@ class FuseDFS(LoggingMixIn, Operations):
 
     def write(self, path, buf, offset, fh):
         buffer_length = len(buf)
-        logger.debug(f' write: path: {path} offset: {offset} buf_len: {buffer_length}')
+        logger.debug(f' write: path: {path} offset: {offset} buf_len: {buffer_length} fh: {fh}')
         self.dfs.write_file(path, buf)
         return len(buf)
 

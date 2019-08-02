@@ -3,6 +3,9 @@ from abc import abstractmethod
 
 class DataReaderWriter:
 
+    def __init__(self):
+        pass
+
     @abstractmethod
     def write_file(self, path, data):
         pass
@@ -12,10 +15,32 @@ class DataReaderWriter:
         pass
 
 
+class CachingMethod:
+
+    def __init__(self):
+        pass
+
+    @abstractmethod
+    def write(self, data, bp, fh):
+        pass
+
+    @abstractmethod
+    def read(self, data, bp, fh):
+        pass
+
+
 class StorageMethod:
 
-    def __init(self, data_reader_writer):
+    def __init(self):
         self.data_reader_writer = None
+
+    @abstractmethod
+    def get_file_handle(self, fd):
+        pass
+
+    @abstractmethod
+    def create_new_file_handle(self, path, file_type):
+        pass
 
     @abstractmethod
     def write(self, dfs_file):

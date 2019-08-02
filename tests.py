@@ -1,11 +1,45 @@
 import json
 import unittest
 from dumpsterfs import DumpsterFS
+from datatypes import DataBlock
 from filesystems import InMemoryFileSystem, LocalFileSystem
 
 
-#dumpster_fs = DumpsterFS(local_file_system)
-#print(.index)
+class LocalFileSystemTests(unittest.TestCase):
+
+    def setUp(self):
+
+        self.lfs = LocalFileSystem()
+        self.dfs = DumpsterFS(LocalFileSystem())
+        self.data_to_write = 'happy datastream readytowriteto_disk'
+
+    def write_partial_stream_in_multiple_blocks(self):
+        DataBlock.block_size = 5
+        data_to_write = 'happy datastream readytowriteto_disk'
+        offset1 = 5
+        length = len(data_to_write)
+
+        buf1 = data_to_write[0:offset1]
+        buf2 = data_to_write[1:length]
+
+        self.dfs.write_file2('/testfile', buf1, 0,)
+
+    def test_write_small_file_one_pass(self):
+        fd = self.dfs.create_new_file('/test')
+        self.dfs.write_file(self.data_to_write, fd)
+
+    def test_first_block_creation(self):
+
+        file_handle = self.lfs.create_new_file_handle()
+        buf1 = self.data_to_write[0:5]
+        block = file_handle.dfs_filehandle.get_next_available_block(len(buf1))
+        print(block)
+        assert len(file_handle.dfs_filehandle.data_blocks) == 1
+        assert block
+
+    def test_create_filehandle(self):
+        file_handle = self.lfs.create_new_file_handle()
+        assert file_handle.fd == 1
 
 
 class DumpsterFSTests(unittest.TestCase):
