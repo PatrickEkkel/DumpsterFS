@@ -31,8 +31,10 @@ class LocalDataReaderWriter(DataReaderWriter):
         if os.path.exists(full_path):
             file = open(full_path, 'r')
             data = ''.join(file.readlines())
+            file.close()
         else:
             self.write_file(path, '')
             data = self.read_file(path)
+
 
         return data

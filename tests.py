@@ -17,16 +17,20 @@ class LocalFileSystemTests(unittest.TestCase):
 
     def write_partial_stream_in_multiple_blocks(self):
         DataBlock.block_size = 5
-        data_to_write = 'happy datastream readytowriteto_disk'
-        offset1 = 5
-        length = len(data_to_write)
+        offset1 = 4
+        offset2 = 7
+        length = len(self.data_to_write)
 
-        buf1 = data_to_write[0:offset1]
-        buf2 = data_to_write[1:length]
+        buf1 = self.data_to_write[0:offset1]
+        buf2 = self.data_to_write[offset1:offset2]
+        print(len(buf2))
+        fd = self.dfs.create_new_file('/test')
+        self.dfs.write_file(buf1,fd)
+        self.dfs.write_file(buf1,fd)
 
-        self.dfs.write_file2('/testfile', buf1, 0,)
 
     def test_write_small_file_one_pass(self):
+        # TODO: not done yet
         fd = self.dfs.create_new_file('/test')
         self.dfs.write_file(self.data_to_write, fd)
         self.dfs.flush()

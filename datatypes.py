@@ -40,19 +40,9 @@ class DumpsterNode:
         if buffer_length > DataBlock.block_size:
             raise WriteOperationTooBig()
 
-        if len(self.data_blocks) > 0:
-            last_block = self.data_blocks[-1]
-            # check if it fits into an existing datablock
-            remaining_block_space = DataBlock.block_size - last_block.length
-            if remaining_block_space >= buffer_length:
-                return last_block
-            else:
-                new_block = self.filesystem.create_data_block()
-                self.data_blocks.append(new_block)
-        else:
-            new_block = self.filesystem.create_data_block()
-            self.data_blocks.append(new_block)
-            return new_block
+        new_block = self.filesystem.create_data_block()
+        self.data_blocks.append(new_block)
+        return new_block
 
     def set_file_creation_time(self, time):
         self.lstat['st_ctime'] = time

@@ -175,6 +175,8 @@ class DumpsterFS:
         if file_handle is not None:
             dfs_handle = file_handle.dfs_filehandle
             block = dfs_handle.get_next_available_block(len(buf))
+            print('next available block')
+            print(block.__dict__)
             block.write(buf)
             self._write_next_block(dfs_handle, fh)
 
