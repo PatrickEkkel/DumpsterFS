@@ -21,7 +21,16 @@ class CachingMethod:
         pass
 
     @abstractmethod
+    def get_cache_backlog(self):
+        pass
+
+
+    @abstractmethod
     def write(self, data, bp, fh):
+        pass
+
+    @abstractmethod
+    def read(self, bp, fh):
         pass
 
     @abstractmethod

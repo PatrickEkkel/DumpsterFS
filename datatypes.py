@@ -16,7 +16,7 @@ class BlockNotWriteable(Exception):
 
 class DumpsterNode:
 
-    def __init__(self, file_system, path, node_type=33204):
+    def __init__(self, file_system, path, node_type=33204,fd=-1):
         self.data_blocks = []
         self.filesystem = file_system
         self.block_start_location = None
@@ -24,6 +24,7 @@ class DumpsterNode:
         self.length = 0
         self.lstat = fuse_helpers.create_lstat(node_type=node_type)
         self.block_pointer = 0
+        self.fd = fd
 
     def get_base64(self):
         result = ''
@@ -120,7 +121,9 @@ class DataBlock:
     NEW_NOT_COMMITTED = 0
     READY_NOT_COMMITTED = 1
     NEW_IN_CACHE = 2
-    PERSISTED = 3
+    PERSISTED_IN_CACHE =3
+    READ_FROM_CACHE = 4
+    PERSISTED_ON_STORAGE = 5
 
     @staticmethod
     def extract_block_location(block):
@@ -148,14 +151,15 @@ class DataBlock:
         self.next_block_location = formatted_data['header']
         self.data = formatted_data['file_data']
 
+
+
     def write(self, buf):
         # block is not yet written to medium, self.data should represent the actual state of affairs
         if self.state == DataBlock.NEW_NOT_COMMITTED:
-            print('laat maar zien')
-            #buf = (bytearray(buf, encoding='utf-8'))
-            # print(self.data)
-            self.data.extend(buf)
-            print(len(self.data))
+            if self.data:
+                self.data += buf
+            else:
+                self.data = buf
         else:
             raise BlockNotWriteable()
 
@@ -163,7 +167,8 @@ class DataBlock:
         self.next_block_location = None
         self.storage_method = storage_method
         self.state = DataBlock.NEW_NOT_COMMITTED
-        self.data = []
+        self.blockpointer = 0
+        self.data = None
         # property to keep track of the block_length, self.data is not safe to check, because we
         # can't keep everything in memory, this would be problematic for big files
         self.length = 0
@@ -181,7 +186,7 @@ class Index:
     def __init__(self, storage_method):
         self.index_location = None
         self.storage_method = storage_method
-        self.index = {'index_dict': {}, 'lstat_dict': {}}
+        self.index = {'index_dict': {}, 'lstat_dict': {}, 'fd_dict': {}}
 
     def to_json(self):
         return json.dumps(self.index)
@@ -194,11 +199,18 @@ class Index:
     def add_info(self, path, info):
         self.index['lstat_dict'][path] = info
 
+    def add_fd(self, path, fd):
+        self.index['fd_dict'][fd] = path
+
     def add(self, path, location):
         self.index['index_dict'][path] = location
 
     def info(self, path):
         return self.index_dict['lstat_dict'][path]
+
+    def get_fd(self, fd):
+        # kinda stuid that i have to make it a string, this needs fixing at some point
+        return self.index['fd_dict'][str(fd)]
 
     def find(self, path, search_in='index_dict'):
             return self.index[search_in].get(path) #[path]

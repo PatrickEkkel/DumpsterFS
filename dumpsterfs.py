@@ -17,7 +17,7 @@ class DumpsterFS:
     def __init__(self, file_system):
         self.index = None
         self.filesystem = file_system
-        self.cache = LocalFileCache()
+        self.cache = LocalFileCache(self.filesystem)
 
     def _init_filesystem(self):
         # get the last known location for the index file
@@ -60,6 +60,11 @@ class DumpsterFS:
         self.filesystem.write_index_location(index_location)
         return index_location
 
+    def _add_fd_to_index(self, file):
+        index = self._get_index()
+        index.add_fd(file.path, file.fd)
+        return self._update_index(index)
+
     def _add_filenode_to_index(self, file):
         index = self._get_index()
         file.lstat['st_size'] = file.length
@@ -71,7 +76,6 @@ class DumpsterFS:
         result = DumpsterNode(self.filesystem, None)
         # get the first datablock so we can start reconstructing the file
         first_block = self.filesystem.read(location)
-        print(first_block.__dict__)
         if first_block:
             first_block.update_block_info()
             result.data_blocks.append(first_block)
@@ -93,7 +97,10 @@ class DumpsterFS:
         # write the block to cache and clear the memory,
         self.cache.write(dfs_file.data_blocks[block_pointer].data, block_pointer, fh)
         dfs_file.data_blocks[block_pointer].state = DataBlock.NEW_IN_CACHE
+        dfs_file.data_blocks[block_pointer].data = []
         dfs_file.block_pointer += 1
+    def _read_next_block(self,fd, block):
+        return self.cache.read(block.blockpointer, fd)
 
     def _write_dfs_file(self, dfs_file):
         # write the chunks in reversed order, this is easy for later, because the
@@ -105,9 +112,15 @@ class DumpsterFS:
         previous_block_location = None
         for block in data_blocks:
             block.next_block_location = previous_block_location
+            # read the block from the cache before proceeding
+            if block.state == DataBlock.PERSISTED_IN_CACHE:
+                block.data = self._read_next_block(dfs_file.fd,block)
+                block.state = DataBlock.READ_FROM_CACHE
             block.data = DataBlock.embed_block_location(block)
             previous_block_location = self.filesystem.write(block)
-        # return the first block location
+            block.state = DataBlock.PERSISTED_ON_STORAGE
+
+            # return the first block location
         return previous_block_location
 
     def get_attr(self, path):
@@ -154,7 +167,7 @@ class DumpsterFS:
     def create_new_file(self, path, update_index=True):
         file_handle = self.filesystem.create_new_file_handle(path,fuse_helpers.S_IFREG)
         if update_index:
-            self._add_filenode_to_index(file_handle.dfs_filehandle)
+            self._add_fd_to_index(file_handle.dfs_filehandle)
         return file_handle.fd
 
     def write_file(self, buf, fh, update_index=False):
@@ -164,6 +177,16 @@ class DumpsterFS:
             block = dfs_handle.get_next_available_block(len(buf))
             block.write(buf)
             self._write_next_block(dfs_handle, fh)
+
+
+    def flush(self):
+        cached_files = self.cache.get_cache_backlog()
+
+        for fd, dfs_handle in cached_files.items():
+            index = self._get_index()
+            dfs_handle.path = index.get_fd(fd)
+            self._write_dfs_file(dfs_handle)
+
 
     def write_file_old(self, path, data, update_index=True):
         new_file = DumpsterNode(self.filesystem, path)

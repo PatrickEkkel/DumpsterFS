@@ -1,8 +1,10 @@
 import json
 import unittest
 from dumpsterfs import DumpsterFS
-from datatypes import DataBlock
+from datatypes import DataBlock, DumpsterNode
 from filesystems import InMemoryFileSystem, LocalFileSystem
+from stat import S_IFDIR, S_IFLNK, S_IFREG
+
 
 
 class LocalFileSystemTests(unittest.TestCase):
@@ -27,9 +29,9 @@ class LocalFileSystemTests(unittest.TestCase):
     def test_write_small_file_one_pass(self):
         fd = self.dfs.create_new_file('/test')
         self.dfs.write_file(self.data_to_write, fd)
+        self.dfs.flush()
 
     def test_first_block_creation(self):
-
         file_handle = self.lfs.create_new_file_handle()
         buf1 = self.data_to_write[0:5]
         block = file_handle.dfs_filehandle.get_next_available_block(len(buf1))
@@ -41,6 +43,14 @@ class LocalFileSystemTests(unittest.TestCase):
         file_handle = self.lfs.create_new_file_handle()
         assert file_handle.fd == 1
 
+    def test_fd_index_update(self):
+        file_handle = self.lfs.create_new_file_handle('/path/test123',S_IFREG)
+        print(type(file_handle.fd))
+        print(file_handle.__dict__)
+        self.dfs._add_fd_to_index(file_handle.dfs_filehandle)
+
+        path = self.dfs._get_index().get_fd(1) #.get_fd(file_handle.fd))
+        assert path == '/path/test123'
 
 class DumpsterFSTests(unittest.TestCase):
     def setUp(self):
