@@ -41,7 +41,7 @@ class LocalFileCache(CachingMethod):
 
     def read(self, bp, fh):
         filename = f'cachefile__{fh}__{bp}'
-        return self.data_reader_writer.read_file(filename).encode()
+        return self.data_reader_writer.read_file(filename)
 
     def get_cache_backlog(self):
         listing = self.data_reader_writer.list()
@@ -106,7 +106,7 @@ class LocalFileSystem(StorageMethod):
         self.data_reader_writer.write_file('index', location)
 
     def get_index_location(self):
-        index_file = self.data_reader_writer.read_file('index')
+        index_file = self.data_reader_writer.read_file('index').decode()
         return index_file
 
     def write(self, data_block):

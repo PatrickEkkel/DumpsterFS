@@ -2,7 +2,7 @@
 from __future__ import with_statement
 
 from dumpsterfs import DumpsterFS
-from filesystems import LocalFileSystem
+from filesystems import LocalFileSystem, LocalFileCache
 import logging
 import os
 import sys
@@ -25,7 +25,9 @@ logger.addHandler(ch)
 
 class FuseDFS(LoggingMixIn, Operations):
     def __init__(self):
-        self.dfs = DumpsterFS(LocalFileSystem())
+        lfs = LocalFileSystem()
+        lfc = LocalFileCache(lfs)
+        self.dfs = DumpsterFS(lfs,lfc)
         self.fd = 0
 
     # Filesystem methods
@@ -116,14 +118,12 @@ class FuseDFS(LoggingMixIn, Operations):
     # ============
 
     def open(self, path, flags):
-        self.fd += 1
         logger.debug(f'open: path: {path}')
         return self.fd
 
     def create(self, path, mode, fi=None):
-        self.fd += 1
         logger.debug(f'create: path: {path} fd: {self.fd} ')
-        self.dfs.create_new_file(path)
+        self.fd = self.dfs.create_new_file(path)
         return self.fd
 
     def read(self, path, length, offset, fh):
@@ -133,7 +133,8 @@ class FuseDFS(LoggingMixIn, Operations):
         #else:
         #    logger.debug(f'read: {path} ')
 
-        result = self.dfs.read_file(path)
+        result = self.dfs.read_file(path).encode('utf-8')
+        print(result)
         if result is None:
             return []
 
@@ -143,10 +144,14 @@ class FuseDFS(LoggingMixIn, Operations):
         #return os.read(fh, length)
 
     def write(self, path, buf, offset, fh):
-        buffer_length = len(buf)
-        logger.debug(f' write: path: {path} offset: {offset} buf_len: {buffer_length} fh: {fh}')
-        self.dfs.write_file(path, buf)
-        return len(buf)
+        buf_length = len(buf)
+        logger.debug(f' write: path: {path} offset: {offset} buf_len: {buf_length} fh: {fh}')
+        self.dfs.write_file(buf, fh)
+        return buf_length
+
+    def flush(self, path, fh):
+        logger.debug(f' flush: path: {path} fh: {fh}')
+        #self.dfs.flush()
 
     def truncate(self, path, length, fh=None):
         print('truncate')

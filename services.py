@@ -18,8 +18,12 @@ class LocalDataReaderWriter(DataReaderWriter):
     def write_file(self, path, data):
         full_path = self.rootdirectory + path
         self._create_dirs(full_path)
-        with open(full_path, "w+") as f:
-            f.write(data)
+        # check if data is str or bytes and
+        with open(full_path, "wb+") as f:
+            if type(data) == str:
+                f.write(data.encode('utf-8'))
+            else:
+                f.write(data)
         return path
 
     def list(self):
@@ -29,12 +33,12 @@ class LocalDataReaderWriter(DataReaderWriter):
         full_path = self.rootdirectory + path
 
         if os.path.exists(full_path):
-            file = open(full_path, 'r')
-            data = ''.join(file.readlines())
-            file.close()
+            with open(full_path, "rb") as file:
+                data = bytearray(file.read())
+                #file = open(full_path, 'r')
+                #data = ''.join(file.readlines())
+                #file.close()
         else:
             self.write_file(path, '')
             data = self.read_file(path)
-
-
         return data

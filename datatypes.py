@@ -36,7 +36,6 @@ class DumpsterNode:
         # buffer_length should never exceed max_block_length because this would mean 1 write operation
         # yields multiple blocks, which is something we don't want because it involves more
         # complexity
-
         if buffer_length > DataBlock.block_size:
             raise WriteOperationTooBig()
 

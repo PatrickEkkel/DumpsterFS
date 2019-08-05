@@ -121,15 +121,14 @@ class DumpsterFS:
             block.next_block_location = previous_block_location
             # read the block from the cache before proceeding
 
-            #if block.state == DataBlock.NEW_NOT_COMMITTED:
-            #    print('new')
             if block.state == DataBlock.PERSISTED_IN_CACHE:
-                print('in cache')
                 block.data = self._read_next_block(dfs_file.fd, block)
+                block.length = len(block.data)
                 block.state = DataBlock.READ_FROM_CACHE
             block.data = DataBlock.embed_block_location(block)
             previous_block_location = self.filesystem.write(block)
             block.state = DataBlock.PERSISTED_ON_STORAGE
+            dfs_file.length += block.length
 
             # return the first block location
         return previous_block_location
@@ -176,9 +175,12 @@ class DumpsterFS:
         return self._add_filenode_to_index(new_dir)
 
     def create_new_file(self, path, update_index=True):
+        # creates a filedescriptor and a path in the index
+        # returns associated filedescriptor
         file_handle = self.filesystem.create_new_file_handle(path, fuse_helpers.S_IFREG)
         if update_index:
             self._add_fd_to_index(file_handle.dfs_filehandle)
+            self._add_filenode_to_index(file_handle.dfs_filehandle)
         return file_handle.fd
 
     def write_file(self, buf, fh, update_index=False):
@@ -194,12 +196,16 @@ class DumpsterFS:
         for fd, dfs_handle in cached_files.items():
             index = self._get_index()
             dfs_handle.path = index.get_fd(fd)
-            print('print dfs')
-            print(dfs_handle.__dict__)
             dfs_handle.block_start_location = self._write_dfs_file(dfs_handle)
             self._add_filenode_to_index(dfs_handle)
 
+    def reset_index(self):
+        # helper method to make testing with real filesystems easier
+        self.filesystem.write_index_location('')
+
+
     def write_file_old(self, path, data, update_index=True):
+        # need to get rid of this method, the index is still using it to write to the storage medium
         new_file = DumpsterNode(self.filesystem, path)
         # default to utf-8 for all strings
         if type(data) == str:
