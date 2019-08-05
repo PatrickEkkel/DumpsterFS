@@ -14,10 +14,15 @@ from stat import S_IFDIR, S_IFLNK, S_IFREG
 
 class DumpsterFS:
 
-    def __init__(self, file_system):
+    def __init__(self, file_system, local_file_cache):
         self.index = None
         self.filesystem = file_system
-        self.cache = LocalFileCache(self.filesystem)
+
+        # default caching device is the local file cache
+        if not local_file_cache:
+            self.cache = LocalFileCache(self.filesystem)
+        else:
+            self.cache = local_file_cache
 
     def _init_filesystem(self):
         # get the last known location for the index file
@@ -51,7 +56,7 @@ class DumpsterFS:
         index_location = self._init_filesystem()
         dfs_handle = self._read_dfs_file(index_location)
         index = self.filesystem.create_index()
-        json_index = base64.b64decode(dfs_handle.get_base64())
+        json_index = dfs_handle.get_base64()
         index.index = Index.from_json(json_index)
         return index
 
@@ -81,6 +86,7 @@ class DumpsterFS:
             result.data_blocks.append(first_block)
 
             current_block = first_block
+
             if current_block.next_block_location:
                 while True:
                     current_block = self.filesystem.read(current_block.next_block_location)
@@ -99,6 +105,7 @@ class DumpsterFS:
         dfs_file.data_blocks[block_pointer].state = DataBlock.NEW_IN_CACHE
         dfs_file.data_blocks[block_pointer].data = []
         dfs_file.block_pointer += 1
+
     def _read_next_block(self,fd, block):
         return self.cache.read(block.blockpointer, fd)
 
@@ -113,8 +120,12 @@ class DumpsterFS:
         for block in data_blocks:
             block.next_block_location = previous_block_location
             # read the block from the cache before proceeding
+
+            #if block.state == DataBlock.NEW_NOT_COMMITTED:
+            #    print('new')
             if block.state == DataBlock.PERSISTED_IN_CACHE:
-                block.data = self._read_next_block(dfs_file.fd,block)
+                print('in cache')
+                block.data = self._read_next_block(dfs_file.fd, block)
                 block.state = DataBlock.READ_FROM_CACHE
             block.data = DataBlock.embed_block_location(block)
             previous_block_location = self.filesystem.write(block)
@@ -134,7 +145,7 @@ class DumpsterFS:
         result = index.find(path)
         if result:
             file_data = self._read_dfs_file(result)
-            return base64.b64decode(file_data.get_base64())
+            return file_data.get_base64()
         else:
             return None
 
@@ -165,7 +176,7 @@ class DumpsterFS:
         return self._add_filenode_to_index(new_dir)
 
     def create_new_file(self, path, update_index=True):
-        file_handle = self.filesystem.create_new_file_handle(path,fuse_helpers.S_IFREG)
+        file_handle = self.filesystem.create_new_file_handle(path, fuse_helpers.S_IFREG)
         if update_index:
             self._add_fd_to_index(file_handle.dfs_filehandle)
         return file_handle.fd
@@ -175,20 +186,18 @@ class DumpsterFS:
         if file_handle is not None:
             dfs_handle = file_handle.dfs_filehandle
             block = dfs_handle.get_next_available_block(len(buf))
-            print('next available block')
-            print(block.__dict__)
             block.write(buf)
             self._write_next_block(dfs_handle, fh)
 
-
     def flush(self):
         cached_files = self.cache.get_cache_backlog()
-
         for fd, dfs_handle in cached_files.items():
             index = self._get_index()
             dfs_handle.path = index.get_fd(fd)
-            self._write_dfs_file(dfs_handle)
-
+            print('print dfs')
+            print(dfs_handle.__dict__)
+            dfs_handle.block_start_location = self._write_dfs_file(dfs_handle)
+            self._add_filenode_to_index(dfs_handle)
 
     def write_file_old(self, path, data, update_index=True):
         new_file = DumpsterNode(self.filesystem, path)

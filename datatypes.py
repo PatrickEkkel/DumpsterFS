@@ -60,9 +60,9 @@ class DumpsterNode:
         self.set_file_access_time(creation_time)
         self.set_file_creation_time(creation_time)
         self.set_file_modification_time(creation_time)
-
-        b64_encoded_bytes = base64.b64encode(file_bytes)
-        file_length = len(b64_encoded_bytes)
+        # dit moet anders, want we kunnen niet de gehele file in 1 keer encoden
+        #b64_encoded_bytes = base64.b64encode(file_bytes)
+        file_length = len(file_bytes)
         self.length = file_length
         block_size_counter = 0
         i = 0
@@ -70,7 +70,7 @@ class DumpsterNode:
 
         if file_length < DataBlock.block_size and file_length != 0:
             new_data_block = self.filesystem.create_data_block()
-            new_data_block.data = b64_encoded_bytes[0:file_length]
+            new_data_block.data = file_bytes[0:file_length]
             self.data_blocks.append(new_data_block)
         else:
 
@@ -80,14 +80,14 @@ class DumpsterNode:
                 if (DataBlock.block_size - 1) == block_size_counter:
                     block_size_counter = 0
                     new_data_block = self.filesystem.create_data_block()
-                    new_data_block.data = b64_encoded_bytes[p:i]
+                    new_data_block.data = file_bytes[p:i]
                     self.data_blocks.append(new_data_block)
                     p = i
                     # get the last part of the file that doesn't fit max block_size
                     if file_length < DataBlock.block_size:
                         new_data_block = self.filesystem.create_data_block()
-                        p = len(b64_encoded_bytes) - file_length
-                        new_data_block.data = b64_encoded_bytes[p:len(b64_encoded_bytes)]
+                        p = len(file_bytes) - file_length
+                        new_data_block.data = file_bytes[p:len(file_bytes)]
                         self.data_blocks.append(new_data_block)
                 block_size_counter += 1
                 file_length -= 1

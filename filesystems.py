@@ -52,18 +52,20 @@ class LocalFileCache(CachingMethod):
             fd = int(cachefile_info[1])
             bp = int(cachefile_info[2])
             dfs_handle = result.get(fd)
+
             if dfs_handle is None:
                 backlog_file = DumpsterNode(self.filesystem,None,S_IFREG)
-                new_data_block = self.filesystem.create_data_block()
-                new_data_block.blockpointer = bp
-                new_data_block.state = DataBlock.PERSISTED_IN_CACHE
-                backlog_file.data_blocks.append(new_data_block)
                 backlog_file.fd = fd
                 backlog_file.block_pointer = bp
                 result[fd] = backlog_file
             else:
                 if backlog_file.block_pointer < bp:
                     backlog_file.block_pointer = bp
+
+            new_data_block = self.filesystem.create_data_block()
+            new_data_block.blockpointer = bp
+            new_data_block.state = DataBlock.PERSISTED_IN_CACHE
+            result[fd].data_blocks.append(new_data_block)
 
         return result
 
@@ -95,6 +97,8 @@ class LocalFileSystem(StorageMethod):
     def read(self, location):
         file = self.data_reader_writer.read_file(location)
         datablock = self.create_data_block()
+        datablock.state = DataBlock.PERSISTED_ON_STORAGE
+        # file is being read from the storage medium so it should have the status
         datablock.data = file
         return datablock
 
