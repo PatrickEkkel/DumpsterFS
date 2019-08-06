@@ -2,7 +2,7 @@ import json
 import unittest
 from dumpsterfs import DumpsterFS
 from datatypes import DataBlock, DumpsterNode
-from filesystems import InMemoryFileSystem, LocalFileSystem, LocalFileCache
+from filesystems import InMemoryFileSystem, LocalFileSystem, LocalFileWriteCache
 from stat import S_IFDIR, S_IFLNK, S_IFREG
 
 
@@ -14,7 +14,7 @@ class LocalFileSystemTests(unittest.TestCase):
     def setUp(self):
 
         self.lfs = LocalFileSystem()
-        self.lfc = LocalFileCache(self.lfs)
+        self.lfc = LocalFileWriteCache(self.lfs)
         self.dfs = DumpsterFS(self.lfs, self.lfc)
         self.data_to_write = 'happy datastream readytowriteto_disk'
         self.more_data_to_write = 'Sed ut perspiciatis unde omnis iste natus error sit voluptatem accusantium doloremque laudantium, totam rem aperiam, eaque ipsa quae ab illo inventore veritatis et quasi architecto beatae vitae dicta sunt explicabo. Nemo enim ipsam voluptatem quia voluptas sit aspernatur aut odit aut fugit, sed quia consequuntur magni dolores eos qui ratione voluptatem sequi nesciunt. Neque porro quisquam est, qui dolorem ipsum quia dolor sit amet, consectetur, adipisci velit, sed quia non numquam eius modi tempora incidunt ut labore et dolore magnam aliquam quaerat voluptatem. Ut enim ad minima veniam, quis nostrum exercitationem ullam corporis suscipit laboriosam, nisi ut aliquid ex ea commodi consequatur? Quis autem vel eum iure reprehenderit qui in ea voluptate velit esse quam nihil molestiae consequatur, vel illum qui dolorem eum fugiat quo voluptas nulla pariatur'
@@ -72,7 +72,37 @@ class LocalFileSystemTests(unittest.TestCase):
             assert not self.lfc.exists(block_counter, fd)
             block_counter -= 1
 
+    def test_read_file(self):
+        self.dfs.reset_index()
+        DataBlock.block_size = 1000
+        fd = self.dfs.create_new_file('/filetoopen')
+        self.dfs.write_file(self.data_to_write,fd)
+        self.dfs.flush()
+        read_fd = self.dfs.open_file('/filetoopen')
+        buf_len = len(self.data_to_write)
 
+        read_result = self.dfs.read_file(read_fd, 0,buf_len)
+        print(read_result)
+        # TODO: not done yet
+        #assert self.data_to_write == read_result
+
+    def test_open_file(self):
+        self.dfs.reset_index()
+        DataBlock.block_size = 1000
+        fd = self.dfs.create_new_file('/filetoopen')
+        self.dfs.write_file(self.data_to_write,fd)
+        self.dfs.flush()
+        read_fd = self.dfs.open_file('/filetoopen')
+        assert read_fd
+
+    def test_index_with_file_descriptors(self):
+        self.dfs.reset_index()
+        DataBlock.block_size = 1000
+        fd = self.dfs.create_new_file('/test')
+        self.dfs.flush()
+        new_fd = self.dfs.open_file('/test')
+        self.dfs.read_file(new_fd,0,4096)
+        #print(self.dfs._get_index().find('/test'))
 
     def test_write_small_file_one_pass(self):
         # TODO: not done yet
@@ -112,7 +142,6 @@ class LocalFileSystemTests(unittest.TestCase):
         file_handle = self.lfs.create_new_file_handle('/create_first_block_test', S_IFREG)
         buf1 = self.data_to_write[0:5]
         block = file_handle.dfs_filehandle.get_next_available_block(len(buf1))
-        print(block)
         assert len(file_handle.dfs_filehandle.data_blocks) == 1
         assert block
 
@@ -123,15 +152,12 @@ class LocalFileSystemTests(unittest.TestCase):
 
     def test_fd_index_update(self):
         file_handle = self.lfs.create_new_file_handle('/path/test123', S_IFREG)
-        print(type(file_handle.fd))
-        print(file_handle.__dict__)
         self.dfs._add_fd_to_index(file_handle.dfs_filehandle)
 
         path = self.dfs._get_index().get_fd(1) #.get_fd(file_handle.fd))
         assert path == '/path/test123'
 
     def test_clear_index(self):
-            #print(self.lfs.get_index_location())
             self.dfs._init_filesystem()
             self.dfs.reset_index()
             assert self.lfs.get_index_location() == ''

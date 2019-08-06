@@ -102,10 +102,12 @@ class DumpsterNode:
 class DataBlock:
 
     block_size = 4096
+    #block_size = 10
     # random set of selected bytes to mark the end of the header useable data
     # prolly a bad idea, we are not going for reliability... if its crap
     # we will find something better
     header_end_byte_marker = 'F00F'
+    empty_block_pointer = 'Empty'
 
     NEW_NOT_COMMITTED = 0
     READY_NOT_COMMITTED = 1
@@ -119,8 +121,9 @@ class DataBlock:
         data = block.data
         bytemarker = bytearray(DataBlock.header_end_byte_marker, encoding='utf-8')
         block_data = base64.b64decode(data).split(bytemarker)
-        if block_data[0] == 'None':
-            block_data[0] = None
+
+        #if block_data[0] == 'Empty':
+        #    block_data[0] = 'Empty'
         return {'header': block_data[0], 'file_data': block_data[1]}
 
     @staticmethod
@@ -132,7 +135,7 @@ class DataBlock:
                 (nbl + DataBlock.header_end_byte_marker).encode('utf-8'))
             prepared_header = base64.b64decode(encoded_header)
         else:
-            prepared_header = ('None' + DataBlock.header_end_byte_marker).encode('utf-8')
+            prepared_header = (DataBlock.empty_block_pointer + DataBlock.header_end_byte_marker).encode('utf-8')
 
         return base64.b64encode(prepared_header + block.data).decode()
 
@@ -154,7 +157,7 @@ class DataBlock:
             raise BlockNotWriteable()
 
     def __init__(self, storage_method):
-        self.next_block_location = None
+        self.next_block_location = 'Empty'
         self.storage_method = storage_method
         self.state = DataBlock.NEW_NOT_COMMITTED
         self.blockpointer = 0
@@ -201,7 +204,7 @@ class Index:
 
     def get_fd(self, fd):
         # kinda stuid that i have to make it a string, this needs fixing at some point
-        return self.index['fd_dict'][str(fd)]
+        return self.index['fd_dict'].get(str(fd))
 
     def find(self, path, search_in='index_dict'):
             return self.index[search_in].get(path) #[path]

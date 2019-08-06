@@ -1,9 +1,7 @@
-from interfaces import StorageMethod, CachingMethod
+from interfaces import StorageMethod, WriteCachingMethod, ReadCachingMethod
 from services import LocalDataReaderWriter
 from datatypes import FileHandle, DumpsterNode, DataBlock
 from stat import S_IFDIR, S_IFLNK, S_IFREG
-
-
 import os
 import binascii
 
@@ -32,9 +30,29 @@ class InMemoryFileSystem(StorageMethod):
         self.storage[filename.decode()] = data_block.data
         return filename.decode()
 
+class InMemoryReadCache(ReadCachingMethod):
+    # quick little in memory cache to serve as a buffer for the fuse interface
+    def read_file(self,fd, offset, length):
+        if length > len(self.filecache_dict[fd]):
+            return self.filecache_dict[fd][offset:length]#.decode('utf-8')
+        return self.filecache_dict[fd][offset:length]
 
-class LocalFileCache(CachingMethod):
+    def write_file(self,data, fd,offset,length):
+        self.filecache_dict[fd] = data[offset:length]
 
+    def exists(self, fd):
+        result = self.filecache_dict.get([fd])
+        return result
+
+    def __init__(self):
+        ReadCachingMethod.__init__(self)
+        self.filecache_dict = {}
+
+
+
+class LocalFileWriteCache(WriteCachingMethod):
+    # write cache, that writes blocks of file to disk, makes write operations
+    # go smoother, and allows for delayed write tactics
     def exists(self, bp, fh):
         filename = f'cachefile__{fh}__{bp}'
         return self.data_reader_writer.file_exists(filename)
@@ -79,7 +97,7 @@ class LocalFileCache(CachingMethod):
         return result
 
     def __init__(self,filesystem):
-        CachingMethod.__init__(self)
+        WriteCachingMethod.__init__(self)
         self.data_reader_writer = LocalDataReaderWriter()
         self.data_reader_writer.rootdirectory = '/tmp/local_dfs/cache/'
         self.data_reader_writer._create_dirs('/tmp/local_dfs/cache/')

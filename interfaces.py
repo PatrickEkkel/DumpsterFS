@@ -22,8 +22,26 @@ class DataReaderWriter:
     def delete_file(self, filename):
         pass
 
+class ReadCachingMethod:
 
-class CachingMethod:
+    def __init__(self):
+        pass
+
+    @abstractmethod
+    def read_file(self,fd, offset, length):
+
+        pass
+
+    @abstractmethod
+    def write_file(self,data, fd,offset,length):
+
+        pass
+
+    @abstractmethod
+    def exists(self,fd):
+        pass
+
+class WriteCachingMethod:
 
     def __init__(self):
         pass

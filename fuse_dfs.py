@@ -2,7 +2,7 @@
 from __future__ import with_statement
 
 from dumpsterfs import DumpsterFS
-from filesystems import LocalFileSystem, LocalFileCache
+from filesystems import LocalFileSystem, LocalFileWriteCache
 import logging
 import os
 import sys
@@ -26,7 +26,7 @@ logger.addHandler(ch)
 class FuseDFS(LoggingMixIn, Operations):
     def __init__(self):
         lfs = LocalFileSystem()
-        lfc = LocalFileCache(lfs)
+        lfc = LocalFileWriteCache(lfs)
         self.dfs = DumpsterFS(lfs,lfc)
         self.fd = 0
 
@@ -119,7 +119,7 @@ class FuseDFS(LoggingMixIn, Operations):
 
     def open(self, path, flags):
         logger.debug(f'open: path: {path}')
-        return self.fd
+        return self.dfs.open_file(path)
 
     def create(self, path, mode, fi=None):
         logger.debug(f'create: path: {path} fd: {self.fd} ')
@@ -129,7 +129,7 @@ class FuseDFS(LoggingMixIn, Operations):
     def read(self, path, length, offset, fh):
 
         logger.debug(f'read: path: {path}  length: {length} offset: {offset} fd: {fh}')
-        result = self.dfs.read_file(path)
+        result = bytes(self.dfs.read_file(fh, offset, length))
         if result is None:
             return []
         return result
