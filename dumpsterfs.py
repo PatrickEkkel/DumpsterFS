@@ -12,6 +12,7 @@ from interfaces import StorageMethod, DataReaderWriter
 from filesystems import LocalFileSystem, LocalFileCache
 from stat import S_IFDIR, S_IFLNK, S_IFREG
 
+
 class DumpsterFS:
 
     def __init__(self, file_system, local_file_cache):
@@ -42,7 +43,7 @@ class DumpsterFS:
             self.filesystem.write_index_location(index_location)
         return index_location
 
-    def set_file_info(self,path,key, value):
+    def set_file_info(self, path, key, value):
         index = self._get_index()
         index.index['lstat_dict'][path][key] = value
         self._update_index(index)
@@ -86,14 +87,13 @@ class DumpsterFS:
             result.data_blocks.append(first_block)
 
             current_block = first_block
-
-            if current_block.next_block_location:
+            if current_block.next_block_location and current_block.next_block_location != 'None':
                 while True:
                     current_block = self.filesystem.read(current_block.next_block_location)
                     current_block.update_block_info()
                     result.data_blocks.append(current_block)
 
-                    if not current_block.next_block_location:
+                    if not current_block.next_block_location or current_block.next_block_location == 'None':
                         break
         return result
 
@@ -106,7 +106,7 @@ class DumpsterFS:
         dfs_file.data_blocks[block_pointer].data = []
         dfs_file.block_pointer += 1
 
-    def _read_next_block(self,fd, block):
+    def _read_next_block(self, fd, block):
         return self.cache.read(block.blockpointer, fd)
 
     def _write_dfs_file(self, dfs_file):
@@ -152,10 +152,9 @@ class DumpsterFS:
         result = []
         index = self._get_index()
         file_info = self.get_file_info(path)
-        # if file_info and file_info['st_mode'] == fuse_helpers.S_IFDIR:
+
         for file in index.index['index_dict']:
             if file.startswith(path) and file != path and file != '/.dfs_index':
-                # sanitized_filename = file.split(path)
                 # remove first slash
                 # root is special case
                 if path == '/':
@@ -199,10 +198,15 @@ class DumpsterFS:
             dfs_handle.block_start_location = self._write_dfs_file(dfs_handle)
             self._add_filenode_to_index(dfs_handle)
 
+            # remove all cachefiles associated with the filedescriptor
+            block_counter = dfs_handle.block_pointer
+            while block_counter != -1:
+                self.cache.delete(block_counter, dfs_handle.fd)
+                block_counter -= 1
+
     def reset_index(self):
         # helper method to make testing with real filesystems easier
         self.filesystem.write_index_location('')
-
 
     def write_file_old(self, path, data, update_index=True):
         # need to get rid of this method, the index is still using it to write to the storage medium

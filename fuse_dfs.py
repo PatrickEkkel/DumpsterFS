@@ -128,20 +128,11 @@ class FuseDFS(LoggingMixIn, Operations):
 
     def read(self, path, length, offset, fh):
 
-        #if length and offset:
-        logger.debug(f'read: path: {path}  length: {length} offset: {offset}')
-        #else:
-        #    logger.debug(f'read: {path} ')
-
-        result = self.dfs.read_file(path).encode('utf-8')
-        print(result)
+        logger.debug(f'read: path: {path}  length: {length} offset: {offset} fd: {fh}')
+        result = self.dfs.read_file(path)
         if result is None:
             return []
-
         return result
-        #return result
-        #os.lseek(fh, offset, os.SEEK_SET)
-        #return os.read(fh, length)
 
     def write(self, path, buf, offset, fh):
         buf_length = len(buf)
@@ -151,7 +142,7 @@ class FuseDFS(LoggingMixIn, Operations):
 
     def flush(self, path, fh):
         logger.debug(f' flush: path: {path} fh: {fh}')
-        #self.dfs.flush()
+        self.dfs.flush()
 
     def truncate(self, path, length, fh=None):
         print('truncate')

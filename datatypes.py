@@ -27,7 +27,7 @@ class DumpsterNode:
         self.fd = fd
 
     def get_base64(self):
-        result = ''
+        result = bytearray()
         for block in self.data_blocks:
             result += block.data
         return result
@@ -101,7 +101,7 @@ class DumpsterNode:
 
 class DataBlock:
 
-    block_size = 1000
+    block_size = 4096
     # random set of selected bytes to mark the end of the header useable data
     # prolly a bad idea, we are not going for reliability... if its crap
     # we will find something better
@@ -117,7 +117,8 @@ class DataBlock:
     @staticmethod
     def extract_block_location(block):
         data = block.data
-        block_data = base64.b64decode(data).decode().split(DataBlock.header_end_byte_marker)
+        bytemarker = bytearray(DataBlock.header_end_byte_marker, encoding='utf-8')
+        block_data = base64.b64decode(data).split(bytemarker)
         if block_data[0] == 'None':
             block_data[0] = None
         return {'header': block_data[0], 'file_data': block_data[1]}
@@ -137,7 +138,7 @@ class DataBlock:
 
     def update_block_info(self):
         formatted_data = DataBlock.extract_block_location(self)
-        self.next_block_location = formatted_data['header']
+        self.next_block_location = formatted_data['header'].decode()
         self.data = formatted_data['file_data']
 
 
@@ -156,6 +157,7 @@ class DataBlock:
         self.next_block_location = None
         self.storage_method = storage_method
         self.state = DataBlock.NEW_NOT_COMMITTED
+        self.blockpointer = 0
         self.blockpointer = 0
         self.data = None
         # property to keep track of the block_length, self.data is not safe to check, because we

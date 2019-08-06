@@ -48,12 +48,31 @@ class LocalFileSystemTests(unittest.TestCase):
 
         cached_file = self.lfc.get_cache_backlog()[fd]
         for block in cached_file.data_blocks:
-            #print(block.data)
             assert block.state == DataBlock.PERSISTED_IN_CACHE
-        print('amount of blocks')
-        print(len(cached_file.data_blocks))
 
         assert len(cached_file.data_blocks) == 2
+
+    def test_flush_cache_clear(self):
+        self.dfs.reset_index()
+        DataBlock.block_size = 5
+        fd = self.dfs.create_new_file('/filetoberemovedfromcache')
+        offset1 = 4
+        offset2 = 7
+
+        buf1 = self.data_to_write[0:offset1]
+        buf2 = self.data_to_write[offset1:offset2]
+
+        self.dfs.write_file(buf1, fd)
+        self.dfs.write_file(buf2, fd)
+
+        file_handle = self.lfs.get_file_handle(fd)
+        block_counter = file_handle.dfs_filehandle.block_pointer
+        self.dfs.flush()
+        while block_counter != -1:
+            assert not self.lfc.exists(block_counter, fd)
+            block_counter -= 1
+
+
 
     def test_write_small_file_one_pass(self):
         # TODO: not done yet

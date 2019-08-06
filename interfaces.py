@@ -7,11 +7,19 @@ class DataReaderWriter:
         pass
 
     @abstractmethod
+    def file_exists(self, path):
+        pass
+
+    @abstractmethod
     def write_file(self, path, data):
         pass
 
     @abstractmethod
     def read_file(self, path):
+        pass
+
+    @abstractmethod
+    def delete_file(self, filename):
         pass
 
 
@@ -24,9 +32,16 @@ class CachingMethod:
     def get_cache_backlog(self):
         pass
 
-
     @abstractmethod
     def write(self, data, bp, fh):
+        pass
+
+    @abstractmethod
+    def delete(self, bp, fh):
+        pass
+
+    @abstractmethod
+    def exists(self, bp, fh):
         pass
 
     @abstractmethod

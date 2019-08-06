@@ -4,6 +4,15 @@ from interfaces import DataReaderWriter
 
 class LocalDataReaderWriter(DataReaderWriter):
 
+    def file_exists(self, path):
+        full_path = self.rootdirectory + path
+        return os.path.isfile(full_path)
+
+    def delete_file(self, filename):
+        full_path = self.rootdirectory + filename
+        os.remove(full_path)
+
+
     def __init__(self):
         self.rootdirectory = '/tmp/local_dfs/'
 
@@ -35,9 +44,6 @@ class LocalDataReaderWriter(DataReaderWriter):
         if os.path.exists(full_path):
             with open(full_path, "rb") as file:
                 data = bytearray(file.read())
-                #file = open(full_path, 'r')
-                #data = ''.join(file.readlines())
-                #file.close()
         else:
             self.write_file(path, '')
             data = self.read_file(path)
