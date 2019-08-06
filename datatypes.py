@@ -136,7 +136,7 @@ class DataBlock:
             prepared_header = base64.b64decode(encoded_header)
         else:
             prepared_header = (DataBlock.empty_block_pointer + DataBlock.header_end_byte_marker).encode('utf-8')
-
+        #return (prepared_header + block.data)
         return base64.b64encode(prepared_header + block.data).decode()
 
     def update_block_info(self):

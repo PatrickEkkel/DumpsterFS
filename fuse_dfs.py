@@ -129,7 +129,8 @@ class FuseDFS(LoggingMixIn, Operations):
     def read(self, path, length, offset, fh):
 
         logger.debug(f'read: path: {path}  length: {length} offset: {offset} fd: {fh}')
-        result = bytes(self.dfs.read_file(fh, offset, length))
+        size = offset + length
+        result = bytes(self.dfs.read_file(fh, offset, size))
         if result is None:
             return []
         return result

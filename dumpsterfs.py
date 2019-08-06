@@ -136,12 +136,7 @@ class DumpsterFS:
             # return the first block location
         return previous_block_location
 
-    #def get_attr(self, path):
-    #    index = self._get_index()
-    #    result = index.find(path)
-    #    if result:
-    #        pass
-
+    
     def read_file(self,fd,offset,length):
 
         return self.read_cache.read_file(fd, offset, length)
