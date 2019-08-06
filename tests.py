@@ -82,7 +82,7 @@ class LocalFileSystemTests(unittest.TestCase):
         buf_len = len(self.data_to_write)
 
         read_result = self.dfs.read_file(read_fd, 0,buf_len)
-        print(read_result)
+        #print(read_result)
         # TODO: not done yet
         #assert self.data_to_write == read_result
 
@@ -111,6 +111,30 @@ class LocalFileSystemTests(unittest.TestCase):
         fd = self.dfs.create_new_file('/test')
         self.dfs.write_file(self.data_to_write, fd)
         self.dfs.flush()
+
+    def test_binary_write_and_read_cycle(self):
+        # this test demonstrates what is currently wrong with chunked readings
+        self.dfs.reset_index()
+        DataBlock.block_size = 5
+        binary_test_data = b'\xDE\xAD\xBE\xEF\xAD\xBE\xAD\xBE\xAD\xBE'
+        fd = self.dfs.create_new_file('/binary')
+        offset1 = 4
+        offset2 = 8
+
+        buf1 = binary_test_data[0:offset1]
+        buf2 = binary_test_data[offset1:offset2]
+        buf3 = binary_test_data[offset2:len(binary_test_data)]
+
+        self.dfs.write_file(buf1, fd)
+        self.dfs.write_file(buf2, fd)
+        self.dfs.write_file(buf3, fd)
+        self.dfs.flush()
+        read_fd = self.dfs.open_file('/binary')
+        read_result = self.dfs.read_file(read_fd, 0,10)
+        print(read_result)
+
+        length = len(binary_test_data)
+        assert read_result == binary_test_data
 
     def test_st_size_length(self):
         self.dfs.reset_index()
