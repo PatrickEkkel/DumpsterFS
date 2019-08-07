@@ -92,11 +92,8 @@ class DumpsterNode:
                 file_length -= 1
                 i += 1
 
-    def deserialize(self):
-        pass
-
-    def serialize(self):
-        pass
+    def get_datablocks_in_writeorder(self):
+        return sorted(self.data_blocks, key=lambda x: x.blockpointer, reverse=True)
 
 
 class DataBlock:
@@ -143,6 +140,7 @@ class DataBlock:
         formatted_data = DataBlock.extract_block_location(self)
         self.next_block_location = formatted_data['header'].decode()
         self.data = formatted_data['file_data']
+
 
 
 

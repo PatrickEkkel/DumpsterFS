@@ -72,7 +72,38 @@ class LocalFileSystemTests(unittest.TestCase):
             assert not self.lfc.exists(block_counter, fd)
             block_counter -= 1
 
-    def test_read_file(self):
+    def test_read_file_lots_of_blocks(self):
+        self.dfs.reset_index()
+        DataBlock.block_size = 5
+        offset1 = 4
+        offset2 = 8
+        offset3 = 12
+        offset4 = 16
+        offset5 = 21
+
+        buf1 = self.more_data_to_write[0:offset1]
+        buf2 = self.more_data_to_write[offset1:offset2]
+        buf3 = self.more_data_to_write[offset2:offset3]
+        buf4 = self.more_data_to_write[offset3:offset4]
+        buf5 = self.more_data_to_write[offset4:offset5]
+
+        fd = self.dfs.create_new_file('/multi_chunk_file')
+
+        self.dfs.write_file(buf1, fd)
+        self.dfs.write_file(buf2, fd)
+        self.dfs.write_file(buf3, fd)
+        self.dfs.write_file(buf4, fd)
+        self.dfs.write_file(buf5, fd)
+        expected_result = bytearray((buf1 + buf2 + buf3 + buf4 + buf5),encoding='utf-8')
+        buf_len = len(expected_result)
+        self.dfs.flush()
+        read_fd = self.dfs.open_file('/multi_chunk_file')
+        read_result = self.dfs.read_file(read_fd, 0, 21)
+        assert read_result == expected_result
+
+
+
+    def test_read_file_single_block(self):
         self.dfs.reset_index()
         DataBlock.block_size = 1000
         fd = self.dfs.create_new_file('/filetoopen')
@@ -82,9 +113,9 @@ class LocalFileSystemTests(unittest.TestCase):
         buf_len = len(self.data_to_write)
 
         read_result = self.dfs.read_file(read_fd, 0,buf_len)
-        #print(read_result)
-        # TODO: not done yet
-        #assert self.data_to_write == read_result
+        print(read_result)
+        expected_result = bytearray(self.data_to_write, encoding='utf-8')
+        assert expected_result == read_result
 
     def test_open_file(self):
         self.dfs.reset_index()
@@ -98,10 +129,10 @@ class LocalFileSystemTests(unittest.TestCase):
     def test_index_with_file_descriptors(self):
         self.dfs.reset_index()
         DataBlock.block_size = 1000
-        fd = self.dfs.create_new_file('/test')
+        self.dfs.create_new_file('/test')
         self.dfs.flush()
         new_fd = self.dfs.open_file('/test')
-        self.dfs.read_file(new_fd,0,4096)
+        self.dfs.read_file(new_fd, 0, 4096)
         #print(self.dfs._get_index().find('/test'))
 
     def test_write_small_file_one_pass(self):

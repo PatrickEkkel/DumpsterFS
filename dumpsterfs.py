@@ -9,7 +9,7 @@ import numpy as np
 from utils import is_bytes
 from datatypes import DataBlock, Index, DumpsterNode
 from interfaces import StorageMethod, DataReaderWriter
-from filesystems import LocalFileSystem, LocalFileWriteCache,InMemoryReadCache
+from filesystems import LocalFileSystem, LocalFileWriteCache, InMemoryReadCache
 from stat import S_IFDIR, S_IFLNK, S_IFREG
 
 
@@ -18,7 +18,7 @@ class DumpsterFS:
     def __init__(self, file_system, local_file_cache):
         self.index = None
         self.filesystem = file_system
-        self.read_cache  = InMemoryReadCache()
+        self.read_cache = InMemoryReadCache()
         # default caching device is the local file cache
         if not local_file_cache:
             self.write_cache = LocalFileWriteCache(self.filesystem)
@@ -75,9 +75,9 @@ class DumpsterFS:
         index = self._get_index()
         file.lstat['st_size'] = file.length
         if not file.block_start_location:
-            index.add(file.path,DataBlock.empty_block_pointer)
+            index.add(file.path, DataBlock.empty_block_pointer)
         else:
-            index.add(file.path,file.block_start_location)
+            index.add(file.path, file.block_start_location)
         index.add_info(file.path, file.lstat)
         return self._update_index(index)
 
@@ -104,6 +104,7 @@ class DumpsterFS:
         block_pointer = dfs_file.block_pointer
         dfs_file.data_blocks[block_pointer].state = DataBlock.READY_NOT_COMMITTED
         # write the block to cache and clear the memory,
+
         self.write_cache.write(dfs_file.data_blocks[block_pointer].data, block_pointer, fh)
         dfs_file.data_blocks[block_pointer].state = DataBlock.NEW_IN_CACHE
         dfs_file.data_blocks[block_pointer].data = []
@@ -112,13 +113,19 @@ class DumpsterFS:
     def _read_next_block(self, fd, block):
         return self.write_cache.read(block.blockpointer, fd)
 
-    def _write_dfs_file(self, dfs_file):
+    def _write_dfs_file(self, dfs_file, sort_blocks=False):
         # write the chunks in reversed order, this is easy for later, because the
         # chunks are chained together like a linked list and we we want to read the file, from
         # first to last, every chunk contains a reference to the next_chunk, the
         # location is not in our control so we can't generate the references
         # beforehand
-        data_blocks = reversed(dfs_file.data_blocks)
+
+        # this is the result of using the old write method for the index, remove asap before
+        # this legacy manifests itself.
+        if sort_blocks:
+            data_blocks = dfs_file.get_datablocks_in_writeorder()
+        else:
+            data_blocks = reversed(dfs_file.data_blocks)
         previous_block_location = None
         for block in data_blocks:
             block.next_block_location = previous_block_location
@@ -136,25 +143,26 @@ class DumpsterFS:
             # return the first block location
         return previous_block_location
 
-    
-    def read_file(self,fd,offset,length):
+    def read_file(self, fd, offset, length):
 
         return self.read_cache.read_file(fd, offset, length)
+
     def open_file(self, path):
         index = self._get_index()
         result = index.find(path)
         if result == DataBlock.empty_block_pointer:
             # file is created but has no content, hence no blockpointer
             file_handle = self.filesystem.create_new_file_handle(path, fuse_helpers.S_IFREG)
-            self.read_cache.write_file(bytearray(),file_handle.fd,0,0)
+            self.read_cache.write_file(bytearray(), file_handle.fd, 0, 0)
             self._add_fd_to_index(file_handle.dfs_filehandle)
             return file_handle.fd
 
         elif result != DataBlock.empty_block_pointer:
-            file_handle = self._read_dfs_file(result) #
+            file_handle = self._read_dfs_file(result)  #
             offset = 0
             length = len(file_handle.dfs_filehandle.get_base64())
-            self.read_cache.write_file(file_handle.dfs_filehandle.get_base64(),file_handle.fd,offset,length)
+            self.read_cache.write_file(file_handle.dfs_filehandle.get_base64(), file_handle.fd,
+                                       offset, length)
             return file_handle.fd
 
         else:
@@ -162,11 +170,10 @@ class DumpsterFS:
 
             return file_handle.fd
 
-
     def list_dir(self, path):
         result = []
         index = self._get_index()
-        file_info = self.get_file_info(path)
+        #file_info = self.get_file_info(path)
 
         for file in index.index['index_dict']:
             if file.startswith(path) and file != path and file != '/.dfs_index':
@@ -210,7 +217,7 @@ class DumpsterFS:
         for fd, dfs_handle in cached_files.items():
             index = self._get_index()
             dfs_handle.path = index.get_fd(fd)
-            dfs_handle.block_start_location = self._write_dfs_file(dfs_handle)
+            dfs_handle.block_start_location = self._write_dfs_file(dfs_handle, sort_blocks=True)
             self._add_filenode_to_index(dfs_handle)
 
             # remove all cachefiles associated with the filedescriptor
