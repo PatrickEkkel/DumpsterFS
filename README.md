@@ -16,7 +16,7 @@ git clone this repository and start with `python3 fuse_dfs.py /your_mount_point/
 
 Tests can be run with `python3 tests.py`, this will generate some residue in /tmp/local_dfs, nothing to be concerned of, in future versions i will switch the testing over to a in memory filesystem
 
-its currently configured to dump all the blocks into /tmp/local_dfs. In the future we will make this configurable. For unit testing purposed i have also included an in memory filesystem. 
+Currently configured to dump all the fileblocks into /tmp/local_dfs. In the future we will make this configurable. 
 
 ## Features
 
