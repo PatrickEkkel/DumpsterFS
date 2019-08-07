@@ -41,6 +41,7 @@ I have not tested it anywhere else besides my laptop, so i could be missing some
 - Hastebin Adapter, so you can connect it to your local hastebin instance. 
 - Hardbin Adapter, persist everything on hardbin which is connected to the IPFS!
 - Yaml settings, so configuring everything will be as easy and quick
+- Distributable package for several linux distro's, (Ubuntu, CentOS, Archlinux)
 
 
 
