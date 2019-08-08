@@ -30,7 +30,7 @@ I have not tested it anywhere else besides my laptop, so i could be missing some
 ## Known shortcomings  
 - user permissions, the filesystem does not support user permissions, this is more something that is nice to have, not really a priority 
 
-- missing implementation, rename, symlinks, stat, rmdir are not implemented 
+- symlinks are not yet implemented  
 
 - block size is limited to 4096 bytes because the current implementation does not support block appending after it is being written and fusepy delivers files in 4096 byte chunks, so that is what the maximum block size is at the moment. 
 
