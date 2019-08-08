@@ -6,6 +6,7 @@ import ntpath
 import numpy
 import os
 
+
 class WriteOperationTooBig(Exception):
     pass
 
@@ -16,7 +17,7 @@ class BlockNotWriteable(Exception):
 
 class DumpsterNode:
 
-    def __init__(self, file_system, path, node_type=33204,fd=-1):
+    def __init__(self, file_system, path, node_type=33204, fd=-1):
         self.data_blocks = []
         self.filesystem = file_system
         self.block_start_location = None
@@ -60,7 +61,7 @@ class DumpsterNode:
         self.set_file_creation_time(creation_time)
         self.set_file_modification_time(creation_time)
         # dit moet anders, want we kunnen niet de gehele file in 1 keer encoden
-        #b64_encoded_bytes = base64.b64encode(file_bytes)
+        # b64_encoded_bytes = base64.b64encode(file_bytes)
         file_length = len(file_bytes)
         self.length = file_length
         block_size_counter = 0
@@ -97,9 +98,8 @@ class DumpsterNode:
 
 
 class DataBlock:
-
     block_size = 4096
-    #block_size = 10
+    # block_size = 10
     # random set of selected bytes to mark the end of the header useable data
     # prolly a bad idea, we are not going for reliability... if its crap
     # we will find something better
@@ -109,7 +109,7 @@ class DataBlock:
     NEW_NOT_COMMITTED = 0
     READY_NOT_COMMITTED = 1
     NEW_IN_CACHE = 2
-    PERSISTED_IN_CACHE =3
+    PERSISTED_IN_CACHE = 3
     READ_FROM_CACHE = 4
     PERSISTED_ON_STORAGE = 5
 
@@ -119,7 +119,7 @@ class DataBlock:
         bytemarker = bytearray(DataBlock.header_end_byte_marker, encoding='utf-8')
         block_data = base64.b64decode(data).split(bytemarker)
 
-        #if block_data[0] == 'Empty':
+        # if block_data[0] == 'Empty':
         #    block_data[0] = 'Empty'
         return {'header': block_data[0], 'file_data': block_data[1]}
 
@@ -132,8 +132,10 @@ class DataBlock:
                 (nbl + DataBlock.header_end_byte_marker).encode('utf-8'))
             prepared_header = base64.b64decode(encoded_header)
         else:
-            prepared_header = (DataBlock.empty_block_pointer + DataBlock.header_end_byte_marker).encode('utf-8')
-        #return (prepared_header + block.data)
+            prepared_header = (
+                        DataBlock.empty_block_pointer + DataBlock.header_end_byte_marker).encode(
+                'utf-8')
+        # return (prepared_header + block.data)
         return base64.b64encode(prepared_header + block.data).decode()
 
     def update_block_info(self):
@@ -141,16 +143,21 @@ class DataBlock:
         self.next_block_location = formatted_data['header'].decode()
         self.data = formatted_data['file_data']
 
-
-
-
     def write(self, buf):
+        print('block write is happening')
+        print(buf)
+        print(self.state)
         # block is not yet written to medium, self.data should represent the actual state of affairs
         if self.state == DataBlock.NEW_NOT_COMMITTED:
+            print('yeeeees')
             if self.data:
+                print('apperently, we are appending')
                 self.data += buf
             else:
+
                 self.data = buf
+                print('data written buffer contains file')
+                print(self.data)
         else:
             raise BlockNotWriteable()
 
@@ -182,7 +189,7 @@ class Index:
 
     def to_json(self):
         return json.dumps(self.index)
-        #return json.dumps({'index_dict': self.index_dict, 'lstat_dict': self.lstat_dict})
+        # return json.dumps({'index_dict': self.index_dict, 'lstat_dict': self.lstat_dict})
 
     @staticmethod
     def from_json(json_string):
@@ -197,12 +204,26 @@ class Index:
     def add(self, path, location):
         self.index['index_dict'][path] = location
 
+    def remove(self, path):
+        del self.index['index_dict'][path]
+        del self.index['lstat_dict'][path]
+
     def info(self, path):
         return self.index_dict['lstat_dict'][path]
+
+    def replace(self, old_path, new_path):
+        location = self.find(old_path)
+        info = self.find(old_path, search_in='lstat_dict')
+        self.add(new_path, location)
+        self.add_info(new_path, info)
+        self.remove(old_path)
+
+    def clear_fd_index():
+        self.index['fd_dict'] = {}
 
     def get_fd(self, fd):
         # kinda stuid that i have to make it a string, this needs fixing at some point
         return self.index['fd_dict'].get(str(fd))
 
     def find(self, path, search_in='index_dict'):
-            return self.index[search_in].get(path) #[path]
+        return self.index[search_in].get(path)  # [path]

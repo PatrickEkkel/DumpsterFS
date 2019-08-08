@@ -84,24 +84,20 @@ class FuseDFS(LoggingMixIn, Operations):
         logger.debug(f'mkdir: {result} ')
 
     def statfs(self, path):
-        print('statfs')
-        full_path = self._full_path(path)
-        stv = os.statvfs(full_path)
-        return dict((key, getattr(stv, key)) for key in ('f_bavail', 'f_bfree',
-            'f_blocks', 'f_bsize', 'f_favail', 'f_ffree', 'f_files', 'f_flag',
-            'f_frsize', 'f_namemax'))
+        logger.debug(f'statfs: {path}')
+        return dict(f_bsize=512, f_blocks=4096, f_bavail=2048)
 
     def unlink(self, path):
-        print('unlink')
-        return os.unlink(self._full_path(path))
+        logger.debug(f'unlink: {path}')
+        self.dfs.delete(path)
 
     def symlink(self, name, target):
         print('symlink')
         return os.symlink(name, self._full_path(target))
 
     def rename(self, old, new):
-        print('rename')
-        return os.rename(self._full_path(old), self._full_path(new))
+        logger.debug(f'rename: {old} {new}')
+        self.dfs.rename(old, new)
 
     def link(self, target, name):
         print('link')
@@ -137,6 +133,8 @@ class FuseDFS(LoggingMixIn, Operations):
 
     def write(self, path, buf, offset, fh):
         buf_length = len(buf)
+        print('la ma zien')
+        print(buf)
         logger.debug(f' write: path: {path} offset: {offset} buf_len: {buf_length} fh: {fh}')
         self.dfs.write_file(buf, fh)
         return buf_length
@@ -146,10 +144,17 @@ class FuseDFS(LoggingMixIn, Operations):
         self.dfs.flush()
 
     def truncate(self, path, length, fh=None):
-        print('truncate')
+        logger.debug(f'truncate: path: {path} length: {length}')
+        self.dfs.truncate(path,length)
 
+        # create a new file
+        if length == 0:
+            self.dfs.delete(path)
+
+            self
     def release(self, path, fh):
         logger.debug(f' release: {path}')
+        self.dfs.release(fh)
 
 
 def main(mount_point):

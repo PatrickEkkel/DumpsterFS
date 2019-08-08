@@ -41,6 +41,10 @@ class ReadCachingMethod:
     def exists(self,fd):
         pass
 
+    @abstractmethod
+    def clear(self):
+        pass
+
 class WriteCachingMethod:
 
     def __init__(self):
@@ -86,6 +90,10 @@ class StorageMethod:
 
     @abstractmethod
     def write(self, dfs_file):
+        pass
+
+    @abstractmethod
+    def release_file_handle(self,fd):
         pass
 
     @abstractmethod

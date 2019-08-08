@@ -44,6 +44,9 @@ class InMemoryReadCache(ReadCachingMethod):
         result = self.filecache_dict.get([fd])
         return result
 
+    def clear(self):
+        self.filecache_dict = {}
+
     def __init__(self):
         ReadCachingMethod.__init__(self)
         self.filecache_dict = {}
@@ -64,6 +67,8 @@ class LocalFileWriteCache(WriteCachingMethod):
 
     def write(self, data, bp, fh):
         filename = f'cachefile__{fh}__{bp}'
+        print('data to be written to cache')
+        print(data)
         self.data_reader_writer.write_file(filename,data)
 
     def read(self, bp, fh):
@@ -111,6 +116,10 @@ class LocalFileSystem(StorageMethod):
         new_fh = FileHandle(self.fd, DumpsterNode(self, path, type,self.fd))
         self.open_file_handles[self.fd] = new_fh
         return new_fh
+
+    def release_file_handle(self,fd):
+        if self.open_file_handles.get(fd):
+            del self.open_file_handles[fd]
 
     def get_file_handle(self, fd):
         return self.open_file_handles.get(fd)
