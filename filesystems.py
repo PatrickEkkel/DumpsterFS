@@ -44,6 +44,9 @@ class InMemoryReadCache(ReadCachingMethod):
         result = self.filecache_dict.get([fd])
         return result
 
+    def clear(self):
+        self.filecache_dict = {}
+
     def __init__(self):
         ReadCachingMethod.__init__(self)
         self.filecache_dict = {}
@@ -112,8 +115,20 @@ class LocalFileSystem(StorageMethod):
         self.open_file_handles[self.fd] = new_fh
         return new_fh
 
+    def release_file_handle(self,fd):
+        if self.open_file_handles.get(fd):
+            del self.open_file_handles[fd]
+
     def get_file_handle(self, fd):
         return self.open_file_handles.get(fd)
+
+    def get_file_handle_by_path(self, path):
+
+        for key, value in self.open_file_handles.items():
+            if value and value.dfs_filehandle.path == path:
+                return value
+    def update_filehandle(self,file_handle):
+        self.open_file_handles[file_handle.fd] = file_handle
 
     def __init__(self):
         super(StorageMethod).__init__()

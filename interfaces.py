@@ -41,6 +41,10 @@ class ReadCachingMethod:
     def exists(self,fd):
         pass
 
+    @abstractmethod
+    def clear(self):
+        pass
+
 class WriteCachingMethod:
 
     def __init__(self):
@@ -81,11 +85,23 @@ class StorageMethod:
         pass
 
     @abstractmethod
+    def get_file_handle_by_path(self, path):
+        pass
+        
+    @abstractmethod
     def create_new_file_handle(self, path, file_type):
         pass
 
     @abstractmethod
     def write(self, dfs_file):
+        pass
+
+    @abstractmethod
+    def update_filehandle(self, file_handle):
+        pass
+
+    @abstractmethod
+    def release_file_handle(self,fd):
         pass
 
     @abstractmethod

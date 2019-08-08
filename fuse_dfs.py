@@ -28,7 +28,7 @@ class FuseDFS(LoggingMixIn, Operations):
         lfs = LocalFileSystem()
         lfc = LocalFileWriteCache(lfs)
         self.dfs = DumpsterFS(lfs,lfc)
-        self.fd = 0
+        self.truncated_fd = -1
 
     # Filesystem methods
     # ==================
@@ -76,32 +76,27 @@ class FuseDFS(LoggingMixIn, Operations):
         return os.mknod(self._full_path(path), mode, dev)
 
     def rmdir(self, path):
-        full_path = self._full_path(path)
-        return os.rmdir(full_path)
-
+        logger.debug(f'rmdir: {path}')
+        self.dfs.delete(path)
     def mkdir(self, path, mode):
         result = self.dfs.create_dir(path)
         logger.debug(f'mkdir: {result} ')
 
     def statfs(self, path):
-        print('statfs')
-        full_path = self._full_path(path)
-        stv = os.statvfs(full_path)
-        return dict((key, getattr(stv, key)) for key in ('f_bavail', 'f_bfree',
-            'f_blocks', 'f_bsize', 'f_favail', 'f_ffree', 'f_files', 'f_flag',
-            'f_frsize', 'f_namemax'))
+        logger.debug(f'statfs: {path}')
+        return dict(f_bsize=512, f_blocks=4096, f_bavail=2048)
 
     def unlink(self, path):
-        print('unlink')
-        return os.unlink(self._full_path(path))
+        logger.debug(f'unlink: {path}')
+        self.dfs.delete(path)
 
     def symlink(self, name, target):
         print('symlink')
         return os.symlink(name, self._full_path(target))
 
     def rename(self, old, new):
-        print('rename')
-        return os.rename(self._full_path(old), self._full_path(new))
+        logger.debug(f'rename: {old} {new}')
+        self.dfs.rename(old, new)
 
     def link(self, target, name):
         print('link')
@@ -122,7 +117,7 @@ class FuseDFS(LoggingMixIn, Operations):
         return self.dfs.open_file(path)
 
     def create(self, path, mode, fi=None):
-        logger.debug(f'create: path: {path} fd: {self.fd} ')
+        logger.debug(f'create: path: {path} ')
         self.fd = self.dfs.create_new_file(path)
         return self.fd
 
@@ -130,6 +125,7 @@ class FuseDFS(LoggingMixIn, Operations):
 
         logger.debug(f'read: path: {path}  length: {length} offset: {offset} fd: {fh}')
         size = offset + length
+        result = []
         result = bytes(self.dfs.read_file(fh, offset, size))
         if result is None:
             return []
@@ -146,10 +142,12 @@ class FuseDFS(LoggingMixIn, Operations):
         self.dfs.flush()
 
     def truncate(self, path, length, fh=None):
-        print('truncate')
+        logger.debug(f'truncate: path: {path} length: {length} fh: {fh}')
+        self.dfs.truncate(path,length)
 
     def release(self, path, fh):
         logger.debug(f' release: {path}')
+        self.dfs.release(fh)
 
 
 def main(mount_point):
