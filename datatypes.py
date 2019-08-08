@@ -144,20 +144,13 @@ class DataBlock:
         self.data = formatted_data['file_data']
 
     def write(self, buf):
-        print('block write is happening')
-        print(buf)
-        print(self.state)
         # block is not yet written to medium, self.data should represent the actual state of affairs
         if self.state == DataBlock.NEW_NOT_COMMITTED:
-            print('yeeeees')
             if self.data:
-                print('apperently, we are appending')
                 self.data += buf
             else:
 
                 self.data = buf
-                print('data written buffer contains file')
-                print(self.data)
         else:
             raise BlockNotWriteable()
 

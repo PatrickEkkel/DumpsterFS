@@ -67,8 +67,6 @@ class LocalFileWriteCache(WriteCachingMethod):
 
     def write(self, data, bp, fh):
         filename = f'cachefile__{fh}__{bp}'
-        print('data to be written to cache')
-        print(data)
         self.data_reader_writer.write_file(filename,data)
 
     def read(self, bp, fh):
@@ -123,6 +121,14 @@ class LocalFileSystem(StorageMethod):
 
     def get_file_handle(self, fd):
         return self.open_file_handles.get(fd)
+
+    def get_file_handle_by_path(self, path):
+
+        for key, value in self.open_file_handles.items():
+            if value and value.dfs_filehandle.path == path:
+                return value
+    def update_filehandle(self,file_handle):
+        self.open_file_handles[file_handle.fd] = file_handle
 
     def __init__(self):
         super(StorageMethod).__init__()

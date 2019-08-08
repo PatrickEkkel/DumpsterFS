@@ -81,8 +81,8 @@ class DumpsterFS:
         index.add_info(file.path, file.lstat)
         return self._update_index(index)
 
-    def _read_dfs_file(self, location):
-        file_handle = self.filesystem.create_new_file_handle(None, fuse_helpers.S_IFREG)
+    def _read_dfs_file(self, location, path=None):
+        file_handle = self.filesystem.create_new_file_handle(path, fuse_helpers.S_IFREG)
         # get the first datablock so we can start reconstructing the file
         first_block = self.filesystem.read(location)
         if first_block:
@@ -104,8 +104,6 @@ class DumpsterFS:
         block_pointer = dfs_file.block_pointer
         dfs_file.data_blocks[block_pointer].state = DataBlock.READY_NOT_COMMITTED
         # write the block to cache and clear the memory,
-        print('block pointer is currently at')
-        print(str(dfs_file.block_pointer))
         self.write_cache.write(dfs_file.data_blocks[block_pointer].data, block_pointer, fh)
         dfs_file.data_blocks[block_pointer].state = DataBlock.NEW_IN_CACHE
         dfs_file.data_blocks[block_pointer].data = []
@@ -140,12 +138,12 @@ class DumpsterFS:
             previous_block_location = self.filesystem.write(block)
             block.state = DataBlock.PERSISTED_ON_STORAGE
             dfs_file.length += block.length
+        # update size_struct
 
             # return the first block location
         return previous_block_location
 
     def read_file(self, fd, offset, length):
-
         return self.read_cache.read_file(fd, offset, length)
 
     def open_file(self, path):
@@ -159,12 +157,14 @@ class DumpsterFS:
             return file_handle.fd
 
         elif result != DataBlock.empty_block_pointer:
-            print('file exists and is being put in a cache file')
-            file_handle = self._read_dfs_file(result)  #
+            file_handle = self._read_dfs_file(result, path)  #
             offset = 0
             length = len(file_handle.dfs_filehandle.get_base64())
             self.read_cache.write_file(file_handle.dfs_filehandle.get_base64(), file_handle.fd,
                                        offset, length)
+            self._add_fd_to_index(file_handle.dfs_filehandle)
+
+
             return file_handle.fd
 
         else:
@@ -208,15 +208,11 @@ class DumpsterFS:
 
     def write_file(self, buf, fh, update_index=False):
         file_handle = self.filesystem.get_file_handle(fh)
-        #file_handle.dfs_filehandle.data_blocks = []
-        print('filehandle')
-        #print(file_handle.dfs_filehandle.data_blocks[0].data)
+
         if file_handle is not None:
             dfs_handle = file_handle.dfs_filehandle
             block = dfs_handle.get_next_available_block(len(buf))
             block.write(buf)
-            print('what is in the block right now??')
-            print(dfs_handle.get_base64())
             #dfs_handle.data_blocks.append(block)
             self._write_next_block(dfs_handle, fh)
 
@@ -227,6 +223,8 @@ class DumpsterFS:
             index = self._get_index()
             dfs_handle.path = index.get_fd(fd)
             dfs_handle.block_start_location = self._write_dfs_file(dfs_handle, sort_blocks=True)
+            index.find(dfs_handle.path,search_in='lstat_dict')['st_size'] = dfs_handle.length
+
             self._add_filenode_to_index(dfs_handle)
             self.filesystem.release_file_handle(fd)
             # remove all cachefiles associated with the filedescriptor
@@ -234,6 +232,7 @@ class DumpsterFS:
             while block_counter != -1:
                 self.write_cache.delete(block_counter, dfs_handle.fd)
                 block_counter -= 1
+
         # for now we decide to aggresively clear the inmemory read cache after
         # every flush, to ensure that the cache is always up to date
         self.read_cache.clear()
@@ -260,6 +259,9 @@ class DumpsterFS:
 
     def truncate(self,path, length):
         index = self._get_index()
+        file_handle = self.filesystem.get_file_handle_by_path(path)
+        file_handle.dfs_filehandle.data_blocks = []
+        self.filesystem.update_filehandle(file_handle)
         index.find(path,search_in='lstat_dict')['st_size'] = length
         return self._update_index(index)
 

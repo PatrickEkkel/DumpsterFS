@@ -28,7 +28,7 @@ class FuseDFS(LoggingMixIn, Operations):
         lfs = LocalFileSystem()
         lfc = LocalFileWriteCache(lfs)
         self.dfs = DumpsterFS(lfs,lfc)
-        self.fd = 0
+        self.truncated_fd = -1
 
     # Filesystem methods
     # ==================
@@ -76,9 +76,8 @@ class FuseDFS(LoggingMixIn, Operations):
         return os.mknod(self._full_path(path), mode, dev)
 
     def rmdir(self, path):
-        full_path = self._full_path(path)
-        return os.rmdir(full_path)
-
+        logger.debug(f'rmdir: {path}')
+        self.dfs.delete(path)
     def mkdir(self, path, mode):
         result = self.dfs.create_dir(path)
         logger.debug(f'mkdir: {result} ')
@@ -118,7 +117,7 @@ class FuseDFS(LoggingMixIn, Operations):
         return self.dfs.open_file(path)
 
     def create(self, path, mode, fi=None):
-        logger.debug(f'create: path: {path} fd: {self.fd} ')
+        logger.debug(f'create: path: {path} ')
         self.fd = self.dfs.create_new_file(path)
         return self.fd
 
@@ -126,6 +125,7 @@ class FuseDFS(LoggingMixIn, Operations):
 
         logger.debug(f'read: path: {path}  length: {length} offset: {offset} fd: {fh}')
         size = offset + length
+        result = []
         result = bytes(self.dfs.read_file(fh, offset, size))
         if result is None:
             return []
@@ -133,8 +133,6 @@ class FuseDFS(LoggingMixIn, Operations):
 
     def write(self, path, buf, offset, fh):
         buf_length = len(buf)
-        print('la ma zien')
-        print(buf)
         logger.debug(f' write: path: {path} offset: {offset} buf_len: {buf_length} fh: {fh}')
         self.dfs.write_file(buf, fh)
         return buf_length
@@ -144,14 +142,9 @@ class FuseDFS(LoggingMixIn, Operations):
         self.dfs.flush()
 
     def truncate(self, path, length, fh=None):
-        logger.debug(f'truncate: path: {path} length: {length}')
+        logger.debug(f'truncate: path: {path} length: {length} fh: {fh}')
         self.dfs.truncate(path,length)
 
-        # create a new file
-        if length == 0:
-            self.dfs.delete(path)
-
-            self
     def release(self, path, fh):
         logger.debug(f' release: {path}')
         self.dfs.release(fh)
