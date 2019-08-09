@@ -9,7 +9,9 @@ import numpy as np
 from utils import is_bytes
 from datatypes import DataBlock, Index, DumpsterNode
 from interfaces import StorageMethod, DataReaderWriter
-from filesystems import LocalFileSystem, LocalFileWriteCache, InMemoryReadCache
+from filesystems.lfs import LocalFileSystem
+from caching.lfs_write_cache import LocalFileWriteCache
+from caching.inmemory_read_cache import InMemoryReadCache
 from stat import S_IFDIR, S_IFLNK, S_IFREG
 
 

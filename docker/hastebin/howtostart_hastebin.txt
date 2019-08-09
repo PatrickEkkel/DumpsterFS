@@ -1,0 +1,2 @@
+docker run --name hastebin -d -p 7777:7777 -e STORAGE_TYPE=file -v /tmp/data rlister/hastebin
+

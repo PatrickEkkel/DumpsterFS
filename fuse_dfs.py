@@ -2,7 +2,8 @@
 from __future__ import with_statement
 
 from dumpsterfs import DumpsterFS
-from filesystems import LocalFileSystem, LocalFileWriteCache
+from filesystems.lfs import LocalFileSystem
+from caching.lfs_write_cache import LocalFileWriteCache
 import logging
 import os
 import sys
