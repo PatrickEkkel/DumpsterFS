@@ -3,6 +3,7 @@ from __future__ import with_statement
 
 from dumpsterfs import DumpsterFS
 from filesystems.lfs import LocalFileSystem
+from filesystems.hastebin import HasteBinFileSystem
 from caching.lfs_write_cache import LocalFileWriteCache
 import logging
 import os
@@ -26,7 +27,7 @@ logger.addHandler(ch)
 
 class FuseDFS(LoggingMixIn, Operations):
     def __init__(self):
-        lfs = LocalFileSystem()
+        lfs = HasteBinFileSystem()
         lfc = LocalFileWriteCache(lfs)
         self.dfs = DumpsterFS(lfs,lfc)
         self.truncated_fd = -1

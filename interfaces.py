@@ -1,5 +1,6 @@
+from stat import S_IFDIR, S_IFLNK, S_IFREG
 from abc import abstractmethod
-
+from datatypes import FileHandle, DumpsterNode
 
 class DataReaderWriter:
 
@@ -77,32 +78,34 @@ class WriteCachingMethod:
 
 class StorageMethod:
 
-    def __init(self):
-        self.data_reader_writer = None
 
-    @abstractmethod
     def get_file_handle(self, fd):
-        pass
+        return self.open_file_handles.get(fd)
 
-    @abstractmethod
-    def get_file_handle_by_path(self, path):
-        pass
-
-    @abstractmethod
     def create_new_file_handle(self, path, file_type):
-        pass
+        self.fd += 1
+        new_fh = FileHandle(self.fd, DumpsterNode(self, path, file_type , self.fd))
+        self.open_file_handles[self.fd] = new_fh
+        return new_fh
+
+    def release_file_handle(self, fd):
+        if self.open_file_handles.get(fd):
+            del self.open_file_handles[fd]
+
+
+    def get_file_handle_by_path(self, path):
+        for key, value in self.open_file_handles.items():
+            if value and value.dfs_filehandle.path == path:
+                return value
+
+    def update_filehandle(self, file_handle):
+        self.open_file_handles[file_handle.fd] = file_handle
+
 
     @abstractmethod
     def write(self, dfs_file):
         pass
 
-    @abstractmethod
-    def update_filehandle(self, file_handle):
-        pass
-
-    @abstractmethod
-    def release_file_handle(self, fd):
-        pass
 
     @abstractmethod
     def read(self, location):

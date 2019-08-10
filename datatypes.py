@@ -182,8 +182,7 @@ class Index:
 
     def to_json(self):
         return json.dumps(self.index)
-        # return json.dumps({'index_dict': self.index_dict, 'lstat_dict': self.lstat_dict})
-
+        
     @staticmethod
     def from_json(json_string):
         return json.loads(json_string)
