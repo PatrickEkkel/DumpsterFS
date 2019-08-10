@@ -26,10 +26,16 @@ logger.addHandler(ch)
 
 
 class FuseDFS(LoggingMixIn, Operations):
-    def __init__(self):
-        lfs = HasteBinFileSystem()
-        lfc = LocalFileWriteCache(lfs)
-        self.dfs = DumpsterFS(lfs,lfc)
+    def __init__(self, filesystem):
+        if filesystem == 'local':
+            selected_filesystem = LocalFileSystem()
+        elif filesystem == 'hastebin':
+            selected_filesystem = HasteBinFileSystem()
+        else:
+            selected_filesystem = LocalFileSystem()
+
+        lfc = LocalFileWriteCache(LocalFileSystem())
+        self.dfs = DumpsterFS(selected_filesystem,lfc)
         self.truncated_fd = -1
 
     # Filesystem methods
@@ -152,8 +158,8 @@ class FuseDFS(LoggingMixIn, Operations):
         self.dfs.release(fh)
 
 
-def main(mount_point):
-    FUSE(FuseDFS(), mount_point, nothreads=True, foreground=True)
+def main(mount_point,filesystem):
+    FUSE(FuseDFS(filesystem), mount_point,nothreads=True, foreground=True)
 
 if __name__ == '__main__':
-    main(sys.argv[1])
+    main(sys.argv[1],sys.argv[2])

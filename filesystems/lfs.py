@@ -24,8 +24,8 @@ class LocalFileSystem(StorageMethod):
         return self.data_reader_writer.write_file(str(filename.decode()), data_block.data)
 
     def write_index_location(self, location):
-        self.data_reader_writer.write_file('index', location)
+        self.data_reader_writer.write_file('lfs_index', location)
 
     def get_index_location(self):
-        index_file = self.data_reader_writer.read_file('index').decode()
+        index_file = self.data_reader_writer.read_file('lfs_index').decode()
         return index_file
