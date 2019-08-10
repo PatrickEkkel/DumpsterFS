@@ -34,8 +34,6 @@ Tests can be run with `python3 tests.py`, this will generate some residue in /tm
 ## Known shortcomings  
 - user permissions, the filesystem does not support user permissions, this is more something that is nice to have, not really a priority 
 
-- symlinks are not yet implemented  
-
 - block size is limited to 4096 bytes because the current implementation does not support block appending after it is being written and fusepy delivers files in 4096 byte chunks, so that is what the maximum block size is at the moment. 
 
 
