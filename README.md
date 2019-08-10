@@ -30,7 +30,6 @@ Tests can be run with `python3 tests.py`, this will generate some residue in /tm
 - Mediocre read and write speeds for people that dislike performance,
 - accidental copy on write implementation, because it needs to be compatible with Hastebin (meaning write once, write again somewhere else)
 
-I have not tested it anywhere else besides my laptop, so i could be missing something.   
 
 ## Known shortcomings  
 - user permissions, the filesystem does not support user permissions, this is more something that is nice to have, not really a priority 
