@@ -225,7 +225,11 @@ class DumpsterFS:
             index = self._get_index()
             dfs_handle.path = index.get_fd(fd)
             dfs_handle.block_start_location = self._write_dfs_file(dfs_handle, sort_blocks=True)
-            index.find(dfs_handle.path,search_in='lstat_dict')['st_size'] = dfs_handle.length
+            file_stat = index.find(dfs_handle.path,search_in='lstat_dict')
+            if file_stat:
+                file_stat['st_size'] = dfs_handle.length
+                index.add_info(dfs_handle.path,file_stat)
+                #index.find(dfs_handle.path,search_in='lstat_dict')['st_size'] = dfs_handle.length
 
             self._add_filenode_to_index(dfs_handle)
             self.filesystem.release_file_handle(fd)
