@@ -16,13 +16,14 @@ apt-get install pip3
 pip3 install fusepy  
 pip3 install numpy  
 
-git clone this repository and start with `python3 fuse_dfs.py /your_mount_point/ <storage_option>
+git clone this repository and start with `python3 fuse_dfs.py /your_mount_point/ <storage_option>`
 
-for storageoptions there are two valid values, 'hastebin and local'. If you choose to go for hastebin, make your sure you have a local hastebin instance running, one way to get it running quickly is by spinning up a docker container. I suggest using this one. https://hub.docker.com/r/rlister/hastebin`  
+for storage options there are two valid values, 'hastebin and local'. If you choose to go for hastebin, make your sure you have a local hastebin instance running, one way to get it running quickly is by spinning up a docker container. I suggest using this one. https://hub.docker.com/r/rlister/hastebin`  
+
 
 Tests can be run with `python3 tests.py`, this will generate some residue in /tmp/local_dfs, nothing to be concerned of, in future versions i will switch the testing over to a in memory filesystem
 
-Currently configured to dump all the fileblocks into /tmp/local_dfs. In the future we will make this configurable. 
+Currently configured to dump all the fileblocks into /tmp/local_dfs. In the future i will make this configurable. 
 
 ## Features
 
