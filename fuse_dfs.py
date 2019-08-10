@@ -61,22 +61,15 @@ class FuseDFS(LoggingMixIn, Operations):
 
 
     def readdir(self, path, fh):
+        logger.debug(f'readdir: {path}')
         dirents = ['.', '..']
         dirents.extend(self.dfs.list_dir(path))
-        #logger.debug(f'readdir: {dirents}')
         for r in dirents:
             yield r
 
-
     def readlink(self, path):
-        # TODO implement
-        print('readlink')
-        pathname = os.readlink(self._full_path(path))
-        if pathname.startswith("/"):
-            # Path name is absolute, sanitize it.
-            return os.path.relpath(pathname, self.root)
-        else:
-            return pathname
+        logger.debug(f'readlink: {path}')
+        return self.dfs.readlink(path)
 
     def mknod(self, path, mode, dev):
         print('mknod')
@@ -99,8 +92,9 @@ class FuseDFS(LoggingMixIn, Operations):
         self.dfs.delete(path)
 
     def symlink(self, name, target):
-        print('symlink')
-        return os.symlink(name, self._full_path(target))
+        logger.debug(f'symlink: name: {name} target: {target}')
+        # just put slash in front of it, quick hack to get symlinks working
+        self.dfs.symlink(name, target)
 
     def rename(self, old, new):
         logger.debug(f'rename: {old} {new}')

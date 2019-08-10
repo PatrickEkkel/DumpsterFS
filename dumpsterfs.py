@@ -27,6 +27,162 @@ class DumpsterFS:
         else:
             self.write_cache = local_file_cache
 
+    def open_file(self, path):
+        index = self._get_index()
+        result = index.find(path)
+        if result == DataBlock.empty_block_pointer:
+            # file is created but has no content, hence no blockpointer
+            file_handle = self.filesystem.create_new_file_handle(path, fuse_helpers.S_IFREG)
+            self.read_cache.write_file(bytearray(), file_handle.fd, 0, 0)
+            self._add_fd_to_index(file_handle.dfs_filehandle)
+            return file_handle.fd
+
+        elif result != DataBlock.empty_block_pointer:
+            file_handle = self._read_dfs_file(result, path)  #
+            offset = 0
+            length = len(file_handle.dfs_filehandle.get_base64())
+            self.read_cache.write_file(file_handle.dfs_filehandle.get_base64(), file_handle.fd,
+                                       offset, length)
+            self._add_fd_to_index(file_handle.dfs_filehandle)
+
+
+            return file_handle.fd
+
+        else:
+            file_handle = self.filesystem.create_new_file_handle(path, fuse_helpers.S_IFREG)
+
+            return file_handle.fd
+
+    def list_dir(self, path):
+        result = []
+        index = self._get_index()
+        #file_info = self.get_file_info(path)
+
+        for file in index.index['index_dict']:
+            if file.startswith(path) and file != path and file != '/.dfs_index':
+                # remove first slash
+                # root is special case
+                if path == '/':
+                    dir_name = file.split('/')[1]
+
+                else:
+                    # truncate the part that is being requested, and get the right hand side
+                    truncated_path = file.replace(path, '').split('/')[1]
+                    dir_name = truncated_path
+                if dir_name not in result:
+                    result.append(dir_name)
+        return result
+
+    def create_dir(self, path, update_index=True):
+
+        new_dir = DumpsterNode(self.filesystem, path, node_type=fuse_helpers.S_IFDIR)
+        return self._add_filenode_to_index(new_dir)
+
+    def create_new_file(self, path, update_index=True):
+        # creates a filedescriptor and a path in the index
+        # returns associated filedescriptor
+        file_handle = self.filesystem.create_new_file_handle(path, fuse_helpers.S_IFREG)
+        if update_index:
+            self._add_fd_to_index(file_handle.dfs_filehandle)
+            self._add_filenode_to_index(file_handle.dfs_filehandle)
+        return file_handle.fd
+
+    def read_file(self, fd, offset, length):
+        return self.read_cache.read_file(fd, offset, length)
+
+    def write_file(self, buf, fh, update_index=False):
+        file_handle = self.filesystem.get_file_handle(fh)
+
+        if file_handle is not None:
+            dfs_handle = file_handle.dfs_filehandle
+            block = dfs_handle.get_next_available_block(len(buf))
+            block.write(buf)
+            #dfs_handle.data_blocks.append(block)
+            self._write_next_block(dfs_handle, fh)
+
+
+    def flush(self):
+        cached_files = self.write_cache.get_cache_backlog()
+        for fd, dfs_handle in cached_files.items():
+            index = self._get_index()
+            dfs_handle.path = index.get_fd(fd)
+            dfs_handle.block_start_location = self._write_dfs_file(dfs_handle, sort_blocks=True)
+            file_stat = index.find(dfs_handle.path,search_in='lstat_dict')
+            if file_stat:
+                file_stat['st_size'] = dfs_handle.length
+                index.add_info(dfs_handle.path,file_stat)
+                #index.find(dfs_handle.path,search_in='lstat_dict')['st_size'] = dfs_handle.length
+
+            self._add_filenode_to_index(dfs_handle)
+            self.filesystem.release_file_handle(fd)
+            # remove all cachefiles associated with the filedescriptor
+            block_counter = dfs_handle.block_pointer
+            while block_counter != -1:
+                self.write_cache.delete(block_counter, dfs_handle.fd)
+                block_counter -= 1
+
+        # for now we decide to aggresively clear the inmemory read cache after
+        # every flush, to ensure that the cache is always up to date
+        self.read_cache.clear()
+
+    def reset_index(self):
+        # helper method to make testing with real filesystems easier
+        self.filesystem.write_index_location('')
+
+    def rename(self, old_path, new_path):
+        index = self._get_index()
+        index.replace(old_path, new_path)
+        return self._update_index(index)
+
+    def delete(self, path):
+        index = self._get_index()
+        index.remove(path)
+        return self._update_index(index)
+
+    def release(self,fd):
+        self.filesystem.release_file_handle(fd)
+        index = self._get_index()
+
+        return self._update_index(index)
+
+    def truncate(self,path, length):
+        index = self._get_index()
+        file_handle = self.filesystem.get_file_handle_by_path(path)
+        file_handle.dfs_filehandle.data_blocks = []
+        self.filesystem.update_filehandle(file_handle)
+        index.find(path,search_in='lstat_dict')['st_size'] = length
+        return self._update_index(index)
+
+    def symlink(self, source, target):
+        index = self._get_index()
+        index.add(source, target)
+        # just put slash in front of it, quick hack to get symlinks working
+        target_size = index.find('/' + target,search_in='lstat_dict')['st_size']
+        lstat = fuse_helpers.create_lstat(node_type=S_IFLNK,st_size=target_size)
+        index.add_info(source, lstat)
+        return self._update_index(index)
+
+    def readlink(self, path):
+        index = self._get_index()
+        return index.find(path)
+
+    def write_file_old(self, path, data, update_index=True):
+        # need to get rid of this method, the index is still using it to write to the storage medium
+        new_file = DumpsterNode(self.filesystem, path)
+        # default to utf-8 for all strings
+        if type(data) == str:
+            bytes = bytearray(data, encoding='utf-8')
+            new_file.write(bytes)
+        elif is_bytes(data):
+            new_file.write(data)
+
+        new_file.block_start_location = self._write_dfs_file(new_file)
+        if update_index:
+            self._add_filenode_to_index(new_file)
+
+        return new_file.block_start_location
+
+
     def _init_filesystem(self):
         # get the last known location for the index file
         index_location = self.filesystem.get_index_location()
@@ -144,146 +300,3 @@ class DumpsterFS:
 
             # return the first block location
         return previous_block_location
-
-    def read_file(self, fd, offset, length):
-        return self.read_cache.read_file(fd, offset, length)
-
-    def open_file(self, path):
-        index = self._get_index()
-        result = index.find(path)
-        if result == DataBlock.empty_block_pointer:
-            # file is created but has no content, hence no blockpointer
-            file_handle = self.filesystem.create_new_file_handle(path, fuse_helpers.S_IFREG)
-            self.read_cache.write_file(bytearray(), file_handle.fd, 0, 0)
-            self._add_fd_to_index(file_handle.dfs_filehandle)
-            return file_handle.fd
-
-        elif result != DataBlock.empty_block_pointer:
-            file_handle = self._read_dfs_file(result, path)  #
-            offset = 0
-            length = len(file_handle.dfs_filehandle.get_base64())
-            self.read_cache.write_file(file_handle.dfs_filehandle.get_base64(), file_handle.fd,
-                                       offset, length)
-            self._add_fd_to_index(file_handle.dfs_filehandle)
-
-
-            return file_handle.fd
-
-        else:
-            file_handle = self.filesystem.create_new_file_handle(path, fuse_helpers.S_IFREG)
-
-            return file_handle.fd
-
-    def list_dir(self, path):
-        result = []
-        index = self._get_index()
-        #file_info = self.get_file_info(path)
-
-        for file in index.index['index_dict']:
-            if file.startswith(path) and file != path and file != '/.dfs_index':
-                # remove first slash
-                # root is special case
-                if path == '/':
-                    dir_name = file.split('/')[1]
-
-                else:
-                    # truncate the part that is being requested, and get the right hand side
-                    truncated_path = file.replace(path, '').split('/')[1]
-                    dir_name = truncated_path
-                if dir_name not in result:
-                    result.append(dir_name)
-        return result
-
-    def create_dir(self, path, update_index=True):
-
-        new_dir = DumpsterNode(self.filesystem, path, node_type=fuse_helpers.S_IFDIR)
-        return self._add_filenode_to_index(new_dir)
-
-    def create_new_file(self, path, update_index=True):
-        # creates a filedescriptor and a path in the index
-        # returns associated filedescriptor
-        file_handle = self.filesystem.create_new_file_handle(path, fuse_helpers.S_IFREG)
-        if update_index:
-            self._add_fd_to_index(file_handle.dfs_filehandle)
-            self._add_filenode_to_index(file_handle.dfs_filehandle)
-        return file_handle.fd
-
-    def write_file(self, buf, fh, update_index=False):
-        file_handle = self.filesystem.get_file_handle(fh)
-
-        if file_handle is not None:
-            dfs_handle = file_handle.dfs_filehandle
-            block = dfs_handle.get_next_available_block(len(buf))
-            block.write(buf)
-            #dfs_handle.data_blocks.append(block)
-            self._write_next_block(dfs_handle, fh)
-
-
-    def flush(self):
-        cached_files = self.write_cache.get_cache_backlog()
-        for fd, dfs_handle in cached_files.items():
-            index = self._get_index()
-            dfs_handle.path = index.get_fd(fd)
-            dfs_handle.block_start_location = self._write_dfs_file(dfs_handle, sort_blocks=True)
-            file_stat = index.find(dfs_handle.path,search_in='lstat_dict')
-            if file_stat:
-                file_stat['st_size'] = dfs_handle.length
-                index.add_info(dfs_handle.path,file_stat)
-                #index.find(dfs_handle.path,search_in='lstat_dict')['st_size'] = dfs_handle.length
-
-            self._add_filenode_to_index(dfs_handle)
-            self.filesystem.release_file_handle(fd)
-            # remove all cachefiles associated with the filedescriptor
-            block_counter = dfs_handle.block_pointer
-            while block_counter != -1:
-                self.write_cache.delete(block_counter, dfs_handle.fd)
-                block_counter -= 1
-
-        # for now we decide to aggresively clear the inmemory read cache after
-        # every flush, to ensure that the cache is always up to date
-        self.read_cache.clear()
-
-    def reset_index(self):
-        # helper method to make testing with real filesystems easier
-        self.filesystem.write_index_location('')
-
-    def rename(self, old_path, new_path):
-        index = self._get_index()
-        index.replace(old_path, new_path)
-        return self._update_index(index)
-
-    def delete(self, path):
-        index = self._get_index()
-        index.remove(path)
-        return self._update_index(index)
-
-    def release(self,fd):
-        self.filesystem.release_file_handle(fd)
-        index = self._get_index()
-
-        return self._update_index(index)
-
-    def truncate(self,path, length):
-        index = self._get_index()
-        file_handle = self.filesystem.get_file_handle_by_path(path)
-        file_handle.dfs_filehandle.data_blocks = []
-        self.filesystem.update_filehandle(file_handle)
-        index.find(path,search_in='lstat_dict')['st_size'] = length
-        return self._update_index(index)
-
-
-    def write_file_old(self, path, data, update_index=True):
-        # need to get rid of this method, the index is still using it to write to the storage medium
-        new_file = DumpsterNode(self.filesystem, path)
-        # default to utf-8 for all strings
-        if type(data) == str:
-            bytes = bytearray(data, encoding='utf-8')
-            new_file.write(bytes)
-        elif is_bytes(data):
-            new_file.write(data)
-
-        new_file.block_start_location = self._write_dfs_file(new_file)
-        if update_index:
-            self._add_filenode_to_index(new_file)
-
-        return new_file.block_start_location
