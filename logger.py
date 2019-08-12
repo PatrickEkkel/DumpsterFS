@@ -13,13 +13,15 @@ class Logging:
         if not Logging.logging:
             Logging.logging = Logging()
             return Logging.logging
+        else:
+            return Logging.logging
 
-    def create_logger(self, name):
+    def create_logger(self, name,level):
         logger = logging.getLogger(name)
-        logger.setLevel(logging.DEBUG)
+        logger.setLevel(level)
 
         ch = logging.StreamHandler(sys.stdout)
-        ch.setLevel(logging.DEBUG)
+        ch.setLevel(level)
         formatter = logging.Formatter('%(asctime)s - %(name)s - %(levelname)s - %(message)s')
         ch.setFormatter(formatter)
         logger.addHandler(ch)

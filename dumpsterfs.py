@@ -6,6 +6,7 @@ import os, binascii
 import sys
 import errno
 import numpy as np
+import logging
 from utils import is_bytes
 from logger import Logging
 from datatypes import DataBlock, Index, DumpsterNode
@@ -21,7 +22,7 @@ class DumpsterFS:
 
     def __init__(self, file_system, local_file_cache):
         self.index = None
-        self.logger = Logging.create_logger(__name__)
+        self.logger = Logging.get_logging().create_logger(type(self).__name__, logging.INFO)
         self.filesystem = file_system
         self.read_cache = InMemoryReadCache()
         # default caching device is the local file cache
@@ -31,22 +32,31 @@ class DumpsterFS:
             self.write_cache = local_file_cache
 
     def open_file(self, path):
+        self.logger.debug(f'opening file {path}')
         # opens the file and reads the entire content into the read cache, the read cache can then
         # be read in chunks by the fuse read method, so when calling this method you should be
         # aware that the file that is being opened is also being red.
         index = self._get_index()
         result = index.find(path)
-        if result == DataBlock.empty_block_pointer:
+
+        # see if the file is already opened
+        existing_file_handle = self.filesystem.get_file_handle_by_path(path)
+
+        if result == DataBlock.empty_block_pointer and not existing_file_handle:
+            self.logger.debug('empty file, create new filehandle')
+
             # file is created but has no content, hence no blockpointer
             file_handle = self.filesystem.create_new_file_handle(path, fuse_helpers.S_IFREG)
             self.read_cache.write_file(bytearray(), file_handle.fd, 0, 0)
             self._add_fd_to_index(file_handle.dfs_filehandle)
+            self.logger.debug(f' filedescriptor for current file {file_handle.fd}')
             return file_handle.fd
 
         elif result != DataBlock.empty_block_pointer:
             file_handle = self._read_dfs_file(result, path)  #
             offset = 0
             length = len(file_handle.dfs_filehandle.get_base64())
+            self.logger.debug(f'file length in cache: {length}')
             self.read_cache.write_file(file_handle.dfs_filehandle.get_base64(), file_handle.fd,
                                        offset, length)
             self._add_fd_to_index(file_handle.dfs_filehandle)
@@ -54,9 +64,22 @@ class DumpsterFS:
             return file_handle.fd
 
         else:
-            file_handle = self.filesystem.create_new_file_handle(path, fuse_helpers.S_IFREG)
+            if existing_file_handle.dfs_filehandle.get_status() == DataBlock.NEW_IN_CACHE:
+                print('filesystem is dirty, flushing before reading')
+                self.flush()
+                index = self._get_index()
+                result = index.find(path)
+                print(result)
+                file_handle = self._read_dfs_file(result, path)  #
+                offset = 0
+                length = len(file_handle.dfs_filehandle.get_base64())
+                self.logger.debug(f'file length in cache: {length}')
+                self.read_cache.write_file(file_handle.dfs_filehandle.get_base64(), file_handle.fd,
+                               offset, length)
+                self._add_fd_to_index(file_handle.dfs_filehandle)
 
-            return file_handle.fd
+                return file_handle.fd
+
 
     def list_dir(self, path):
         result = []
@@ -91,6 +114,7 @@ class DumpsterFS:
         return file_handle.fd
 
     def read_file(self, fd, offset, length):
+
         # read a filechunk from cache
         return self.read_cache.read_file(fd, offset, length)
 
@@ -103,6 +127,7 @@ class DumpsterFS:
             block = dfs_handle.get_next_available_block(len(buf))
             block.write(buf)
             self._write_next_block(dfs_handle, fh)
+
 
     def flush(self):
         # when the filesystem is flushed we will clear out the cache and write everything that is in
@@ -208,6 +233,7 @@ class DumpsterFS:
         return index.find(path, search_in='lstat_dict')
 
     def _get_index(self):
+        self.logger.debug('fetching index')
         # guarantees that the filesystem is ready for use
         index_location = self._init_filesystem()
         file_handle = self._read_dfs_file(index_location)
@@ -247,13 +273,16 @@ class DumpsterFS:
             current_block = first_block
             if current_block.next_block_location and current_block.next_block_location != DataBlock.empty_block_pointer:
                 while True:
-                    self.logger.debug(f'block_read: {current_block.next_block_location}')
                     current_block = self.filesystem.read(current_block.next_block_location)
                     current_block.update_block_info()
+                    self.logger.debug(f'block_read: {current_block.next_block_location}')
+
                     file_handle.dfs_filehandle.data_blocks.append(current_block)
 
                     if not current_block.next_block_location or current_block.next_block_location == DataBlock.empty_block_pointer:
+                        self.logger.debug('file read finished')
                         break
+
         return file_handle
 
     def _write_next_block(self, dfs_file, fh):

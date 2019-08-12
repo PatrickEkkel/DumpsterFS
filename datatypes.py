@@ -33,6 +33,13 @@ class DumpsterNode:
             result += block.data
         return result
 
+    def get_status(self):
+        # the state of the first block represents the state of the whole file (for now anyways)
+        # later this may change, but for now this quick and dirty implementation is sufficient
+        if self.data_blocks and len(self.data_blocks) > 0:
+            return self.data_blocks[0].state
+
+
     def get_next_available_block(self, buffer_length):
         # buffer_length should never exceed max_block_length because this would mean 1 write operation
         # yields multiple blocks, which is something we don't want because it involves more
@@ -182,7 +189,7 @@ class Index:
 
     def to_json(self):
         return json.dumps(self.index)
-        
+
     @staticmethod
     def from_json(json_string):
         return json.loads(json_string)

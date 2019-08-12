@@ -9,13 +9,14 @@ import os
 import sys
 import time
 import errno
+import logging
 
 from fuse import FUSE, FuseOSError, Operations,  LoggingMixIn
 from errno import ENOENT
 
-logging = Logging.get_logging()
-logging.create_logger(__name__)
-logger = logging.get_logger(__name__)
+l = Logging.get_logging()
+logger = l.create_logger(__name__, logging.DEBUG)
+#logger = l.get_logger(__name__)
 class FuseDFS(LoggingMixIn, Operations):
     def __init__(self, filesystem):
         if filesystem == 'local':
