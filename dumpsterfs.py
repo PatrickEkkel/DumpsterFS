@@ -157,8 +157,11 @@ class DumpsterFS:
         index = self._get_index()
         index.add(source, target)
         # just put slash in front of it, quick hack to get symlinks working
-        target_size = index.find('/' + target,search_in='lstat_dict')['st_size']
-        lstat = fuse_helpers.create_lstat(node_type=S_IFLNK,st_size=target_size)
+        target_lstat = index.find('/' + target, search_in='lstat_dict')
+        target_size = 0
+        if target_lstat:
+            target_size = target_lstat['st_size']
+        lstat = fuse_helpers.create_lstat(node_type=S_IFLNK, st_size=target_size)
         index.add_info(source, lstat)
         return self._update_index(index)
 

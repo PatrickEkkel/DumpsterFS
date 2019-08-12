@@ -2,7 +2,8 @@ import json
 import unittest
 from dumpsterfs import DumpsterFS
 from datatypes import DataBlock, DumpsterNode
-from filesystems import InMemoryFileSystem, LocalFileSystem, LocalFileWriteCache
+from filesystems.lfs import LocalFileSystem
+from caching.lfs_write_cache import LocalFileWriteCache
 from stat import S_IFDIR, S_IFLNK, S_IFREG
 
 
