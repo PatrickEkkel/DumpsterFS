@@ -95,25 +95,23 @@ class LocalFileSystemTests(unittest.TestCase):
         self.dfs.write_file(buf3, fd)
         self.dfs.write_file(buf4, fd)
         self.dfs.write_file(buf5, fd)
-        expected_result = bytearray((buf1 + buf2 + buf3 + buf4 + buf5),encoding='utf-8')
+        expected_result = bytearray((buf1 + buf2 + buf3 + buf4 + buf5), encoding='utf-8')
         buf_len = len(expected_result)
         self.dfs.flush()
         read_fd = self.dfs.open_file('/multi_chunk_file')
         read_result = self.dfs.read_file(read_fd, 0, 21)
         assert read_result == expected_result
 
-
-
     def test_read_file_single_block(self):
         self.dfs.reset_index()
         DataBlock.block_size = 1000
         fd = self.dfs.create_new_file('/filetoopen')
-        self.dfs.write_file(self.data_to_write,fd)
+        self.dfs.write_file(self.data_to_write, fd)
         self.dfs.flush()
         read_fd = self.dfs.open_file('/filetoopen')
         buf_len = len(self.data_to_write)
 
-        read_result = self.dfs.read_file(read_fd, 0,buf_len)
+        read_result = self.dfs.read_file(read_fd, 0, buf_len)
         print(read_result)
         expected_result = bytearray(self.data_to_write, encoding='utf-8')
         assert expected_result == read_result
@@ -122,7 +120,7 @@ class LocalFileSystemTests(unittest.TestCase):
         self.dfs.reset_index()
         DataBlock.block_size = 1000
         fd = self.dfs.create_new_file('/filetoopen')
-        self.dfs.write_file(self.data_to_write,fd)
+        self.dfs.write_file(self.data_to_write, fd)
         self.dfs.flush()
         read_fd = self.dfs.open_file('/filetoopen')
         assert read_fd
@@ -134,7 +132,7 @@ class LocalFileSystemTests(unittest.TestCase):
         self.dfs.flush()
         new_fd = self.dfs.open_file('/test')
         self.dfs.read_file(new_fd, 0, 4096)
-        #print(self.dfs._get_index().find('/test'))
+        # print(self.dfs._get_index().find('/test'))
 
     def test_write_small_file_one_pass(self):
         # TODO: not done yet
@@ -162,7 +160,7 @@ class LocalFileSystemTests(unittest.TestCase):
         self.dfs.write_file(buf3, fd)
         self.dfs.flush()
         read_fd = self.dfs.open_file('/binary')
-        read_result = self.dfs.read_file(read_fd, 0,10)
+        read_result = self.dfs.read_file(read_fd, 0, 10)
         print(read_result)
 
         length = len(binary_test_data)
@@ -192,7 +190,7 @@ class LocalFileSystemTests(unittest.TestCase):
         self.dfs.write_file(buf5, fd)
         self.dfs.flush()
         # expected filesize is 21
-        self.dfs._get_index().find('/fiveblocksonefile',search_in='lstat_dict')['st_size'] == 21
+        self.dfs._get_index().find('/fiveblocksonefile', search_in='lstat_dict')['st_size'] == 21
 
     def test_first_block_creation(self):
         file_handle = self.lfs.create_new_file_handle('/create_first_block_test', S_IFREG)
@@ -206,30 +204,72 @@ class LocalFileSystemTests(unittest.TestCase):
         file_handle = self.lfs.create_new_file_handle('/create_test_filehandle', S_IFREG)
         assert file_handle.fd == 1
 
+    def test_open_same_file_twice(self):
+        self.dfs.reset_index()
+        self._write_multiblock_file('/open_twice_test.txt', self.more_data_to_write)
+        result_fd_1 = self.dfs.open_file('/open_twice_test.txt')
+        result_fd_2 = self.dfs.open_file('/open_twice_test.txt')
+        read_result_1 = self.dfs.read_file(result_fd_1, 0, 4)
+        read_result_2 = self.dfs.read_file(result_fd_2, 4, 8)
+
+        assert result_fd_1 != result_fd_2
+        assert len(read_result_2) == 4
+        assert len(read_result_1) == 4
+
+    def test_two_open_files_at_once(self):
+        self.dfs.reset_index()
+        DataBlock.block_size = 5
+        fd_1 = self._write_multiblock_file('/test_1234', self.more_data_to_write)
+        fd_2 = self._write_multiblock_file('/test_5678', self.data_to_write )
+        print(fd_1)
+        print(fd_2)
+        result_fd_1 = self.dfs.open_file('/test_1234')
+        read_result_1 = self.dfs.read_file(result_fd_1, 0, 10)
+        result_fd_2 = self.dfs.open_file('/test_5678')
+        read_result_2 = self.dfs.read_file(result_fd_2, 0, 10)
+
+        print(result_fd_1)
+        print(result_fd_2)
+        print(read_result_1)
+        print(read_result_2)
+
+        assert True
+
     def test_fd_index_update(self):
         file_handle = self.lfs.create_new_file_handle('/path/test123', S_IFREG)
         self.dfs._add_fd_to_index(file_handle.dfs_filehandle)
 
-        path = self.dfs._get_index().get_fd(1) #.get_fd(file_handle.fd))
+        path = self.dfs._get_index().get_fd(1)  # .get_fd(file_handle.fd))
         assert path == '/path/test123'
 
     def test_clear_index(self):
-            self.dfs._init_filesystem()
-            self.dfs.reset_index()
-            assert self.lfs.get_index_location() == ''
+        self.dfs._init_filesystem()
+        self.dfs.reset_index()
+        assert self.lfs.get_index_location() == ''
 
-# TODO: in memory file cache for unit tests
+    def _write_multiblock_file(self, path, data):
+        offset1 = 4
+        offset2 = 8
+        offset3 = 12
+        offset4 = 16
+        offset5 = 21
 
-#class DumpsterFSTests(unittest.TestCase):
-#    def setUp(self):
-#        self.filesystem = InMemoryFileSystem()
-#        self.dumpster_fs = DumpsterFS(self.filesystem)
-#
-#    def test_file_creation(self):
-#        #new_file = self.dumpster_fs.create_new_file('/multilayered/dir/')
-#        #print(new_file)
-#        new_file = self.dumpster_fs.write_file('/test/1/t', 'geert')
-#        self.dumpster_fs._get_index().find('/test/1/t')
+        buf1 = data[0:offset1]
+        buf2 = data[offset1:offset2]
+        buf3 = data[offset2:offset3]
+        buf4 = data[offset3:offset4]
+        buf5 = data[offset4:offset5]
+
+        fd = self.dfs.create_new_file(path)
+
+        self.dfs.write_file(buf1, fd)
+        self.dfs.write_file(buf2, fd)
+        self.dfs.write_file(buf3, fd)
+        self.dfs.write_file(buf4, fd)
+        self.dfs.write_file(buf5, fd)
+        self.dfs.flush()
+        return fd
+        # expected filesize
 
 
 if __name__ == '__main__':

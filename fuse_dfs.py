@@ -1,11 +1,10 @@
 #!/usr/bin/env python
 from __future__ import with_statement
-
+from logger import Logging
 from dumpsterfs import DumpsterFS
 from filesystems.lfs import LocalFileSystem
 from filesystems.hastebin import HasteBinFileSystem
 from caching.lfs_write_cache import LocalFileWriteCache
-import logging
 import os
 import sys
 import time
@@ -14,17 +13,9 @@ import errno
 from fuse import FUSE, FuseOSError, Operations,  LoggingMixIn
 from errno import ENOENT
 
-logger = logging.getLogger(__name__)
-logger.setLevel(logging.DEBUG)
-
-ch = logging.StreamHandler(sys.stdout)
-ch.setLevel(logging.DEBUG)
-formatter = logging.Formatter('%(asctime)s - %(name)s - %(levelname)s - %(message)s')
-ch.setFormatter(formatter)
-logger.addHandler(ch)
-
-
-
+logging = Logging.get_logging()
+logging.create_logger(__name__)
+logger = logging.get_logger(__name__)
 class FuseDFS(LoggingMixIn, Operations):
     def __init__(self, filesystem):
         if filesystem == 'local':
