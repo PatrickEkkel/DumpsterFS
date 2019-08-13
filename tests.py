@@ -96,7 +96,6 @@ class LocalFileSystemTests(unittest.TestCase):
         self.dfs.write_file(buf4, fd)
         self.dfs.write_file(buf5, fd)
         expected_result = bytearray((buf1 + buf2 + buf3 + buf4 + buf5), encoding='utf-8')
-        buf_len = len(expected_result)
         self.dfs.flush()
         read_fd = self.dfs.open_file('/multi_chunk_file')
         read_result = self.dfs.read_file(read_fd, 0, 21)
@@ -112,7 +111,6 @@ class LocalFileSystemTests(unittest.TestCase):
         buf_len = len(self.data_to_write)
 
         read_result = self.dfs.read_file(read_fd, 0, buf_len)
-        print(read_result)
         expected_result = bytearray(self.data_to_write, encoding='utf-8')
         assert expected_result == read_result
 
@@ -132,18 +130,21 @@ class LocalFileSystemTests(unittest.TestCase):
         self.dfs.flush()
         new_fd = self.dfs.open_file('/test')
         self.dfs.read_file(new_fd, 0, 4096)
-        # print(self.dfs._get_index().find('/test'))
+        result = self.dfs._get_index().find('/test')
+        # expect to find an empty file, because we have not written anything
+        assert result == DataBlock.empty_block_pointer
 
     def test_write_small_file_one_pass(self):
-        # TODO: not done yet
         self.dfs.reset_index()
         DataBlock.block_size = 1000
         fd = self.dfs.create_new_file('/test')
         self.dfs.write_file(self.data_to_write, fd)
         self.dfs.flush()
+        open_fd = self.dfs.open_file('/test')
+        result = self.dfs.read_file(open_fd, 0, len(self.data_to_write))
+        assert result == self.data_to_write.encode('utf-8')
 
     def test_binary_write_and_read_cycle(self):
-        # this test demonstrates what is currently wrong with chunked readings
         self.dfs.reset_index()
         DataBlock.block_size = 5
         binary_test_data = b'\xDE\xAD\xBE\xEF\xAD\xBE\xAD\xBE\xAD\xBE'
@@ -161,14 +162,13 @@ class LocalFileSystemTests(unittest.TestCase):
         self.dfs.flush()
         read_fd = self.dfs.open_file('/binary')
         read_result = self.dfs.read_file(read_fd, 0, 10)
-        print(read_result)
 
-        length = len(binary_test_data)
         assert read_result == binary_test_data
 
     def test_st_size_length(self):
         self.dfs.reset_index()
         DataBlock.block_size = 5
+
         offset1 = 4
         offset2 = 8
         offset3 = 12
@@ -204,6 +204,24 @@ class LocalFileSystemTests(unittest.TestCase):
         file_handle = self.lfs.create_new_file_handle('/create_test_filehandle', S_IFREG)
         assert file_handle.fd == 1
 
+    def test_file_appending(self):
+        # create an empty file, than open it, write 3 blocks to it, start reading those blocks
+        # than replace the contents of the second block with new data
+        self.dfs.reset_index()
+        DataBlock.block_size = 5
+        offset1 = 4
+        offset2 = 8
+        offset3 = 12
+        buf1 = self.more_data_to_write[0:offset1]
+        buf2 = self.more_data_to_write[offset1:offset2]
+        buf3 = self.more_data_to_write[offset2:offset3]
+        self.dfs.create_new_file('/blockappending')
+        fd = self.dfs.open_file('/blockappending')
+        self.dfs.write_file(buf1, fd)
+        self.dfs.write_file(buf2, fd)
+        self.dfs.write_file(buf3, fd)
+        read_result_1 = self.dfs.read_file(fd, 0, 12)
+
     def test_open_same_file_twice(self):
         self.dfs.reset_index()
         self._write_multiblock_file('/open_twice_test.txt', self.more_data_to_write)
@@ -215,25 +233,6 @@ class LocalFileSystemTests(unittest.TestCase):
         assert result_fd_1 != result_fd_2
         assert len(read_result_2) == 4
         assert len(read_result_1) == 4
-
-    def test_two_open_files_at_once(self):
-        self.dfs.reset_index()
-        DataBlock.block_size = 5
-        fd_1 = self._write_multiblock_file('/test_1234', self.more_data_to_write)
-        fd_2 = self._write_multiblock_file('/test_5678', self.data_to_write )
-        print(fd_1)
-        print(fd_2)
-        result_fd_1 = self.dfs.open_file('/test_1234')
-        read_result_1 = self.dfs.read_file(result_fd_1, 0, 10)
-        result_fd_2 = self.dfs.open_file('/test_5678')
-        read_result_2 = self.dfs.read_file(result_fd_2, 0, 10)
-
-        print(result_fd_1)
-        print(result_fd_2)
-        print(read_result_1)
-        print(read_result_2)
-
-        assert True
 
     def test_fd_index_update(self):
         file_handle = self.lfs.create_new_file_handle('/path/test123', S_IFREG)

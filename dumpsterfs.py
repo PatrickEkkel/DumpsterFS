@@ -65,7 +65,7 @@ class DumpsterFS:
 
         else:
             if existing_file_handle.dfs_filehandle.get_status() == DataBlock.NEW_IN_CACHE:
-                print('filesystem is dirty, flushing before reading')
+                self.logger.debug('filesystem is dirty, flushing before reading')
                 self.flush()
                 index = self._get_index()
                 result = index.find(path)
