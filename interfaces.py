@@ -80,9 +80,12 @@ class StorageMethod:
 
 
     def get_file_handle(self, fd):
+        print(self.open_file_handles)
         return self.open_file_handles.get(fd)
 
     def create_new_file_handle(self, path, file_type):
+        print("creating a new filehandle")
+        print(path)
         self.fd += 1
         new_fh = FileHandle(self.fd, DumpsterNode(self, path, file_type , self.fd))
         self.open_file_handles[self.fd] = new_fh

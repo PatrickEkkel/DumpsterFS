@@ -20,12 +20,15 @@ from stat import S_IFDIR, S_IFLNK, S_IFREG
 
 class DumpsterFS:
 
-    def __init__(self, file_system, local_file_cache):
+    def __init__(self, file_system, local_file_cache, local_read_cache):
         self.index = None
         self.logger = Logging.get_logging().create_logger(type(self).__name__, logging.INFO)
         self.filesystem = file_system
-        self.read_cache = InMemoryReadCache()
-        # default caching device is the local file cache
+
+        if not local_read_cache:
+            self.read_cache = InMemoryReadCache()
+        else:
+            self.read_cache = local_read_cache
         if not local_file_cache:
             self.write_cache = LocalFileWriteCache(self.filesystem)
         else:
@@ -65,20 +68,38 @@ class DumpsterFS:
 
         else:
             if existing_file_handle.dfs_filehandle.get_status() == DataBlock.NEW_IN_CACHE:
-                self.logger.debug('filesystem is dirty, flushing before reading')
-                self.flush()
-                index = self._get_index()
-                result = index.find(path)
-                print(result)
-                file_handle = self._read_dfs_file(result, path)  #
-                offset = 0
-                length = len(file_handle.dfs_filehandle.get_base64())
-                self.logger.debug(f'file length in cache: {length}')
-                self.read_cache.write_file(file_handle.dfs_filehandle.get_base64(), file_handle.fd,
-                               offset, length)
-                self._add_fd_to_index(file_handle.dfs_filehandle)
+                print('dump write cache to read cache')
+                self.logger.debug('filesystem is dirty, dump write cache to read cache')
+                # file to be opened is still in the write cache, so prepare to
+                # read file from writecache
+                dfs_filehandle = existing_file_handle.dfs_filehandle
+                for datablock in dfs_filehandle.get_datablocks_in_writeorder():
+                    datablock.data = self._read_next_block(existing_file_handle.fd,datablock)
+                    print(datablock.blockpointer)
 
-                return file_handle.fd
+                offset = 0
+                length = len(dfs_filehandle.get_base64())
+                print('efd')
+                print(existing_file_handle.fd)
+                self.read_cache.write_file(dfs_filehandle.get_base64(), existing_file_handle.fd,
+                                           offset, length)
+
+                # file is loaded from writecache, transfer it to read cache
+
+
+                #self.flush()
+                #index = self._get_index()
+                #result = index.find(path)
+                #print(result)
+                #file_handle = self._read_dfs_file(result, path)  #
+                #offset = 0
+                #length = len(file_handle.dfs_filehandle.get_base64())
+                #self.logger.debug(f'file length in cache: {length}')
+                #self.read_cache.write_file(file_handle.dfs_filehandle.get_base64(), file_handle.fd,
+                #               offset, length)
+                #self._add_fd_to_index(file_handle.dfs_filehandle)
+
+                return existing_file_handle.fd
 
 
     def list_dir(self, path):
@@ -127,6 +148,10 @@ class DumpsterFS:
             block = dfs_handle.get_next_available_block(len(buf))
             block.write(buf)
             self._write_next_block(dfs_handle, fh)
+
+        #print('show dffilehandle after write')
+        #print(file_handle.dfs_filehandle.__dict__)
+        self.filesystem.update_filehandle(file_handle)
 
 
     def flush(self):
@@ -293,6 +318,7 @@ class DumpsterFS:
         dfs_file.data_blocks[block_pointer].state = DataBlock.NEW_IN_CACHE
         dfs_file.data_blocks[block_pointer].data = []
         dfs_file.block_pointer += 1
+
 
     def _read_next_block(self, fd, block):
         return self.write_cache.read(block.blockpointer, fd)

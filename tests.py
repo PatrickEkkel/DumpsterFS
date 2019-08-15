@@ -4,6 +4,7 @@ from dumpsterfs import DumpsterFS
 from datatypes import DataBlock, DumpsterNode
 from filesystems.lfs import LocalFileSystem
 from caching.lfs_write_cache import LocalFileWriteCache
+from caching.inmemory_read_cache import InMemoryReadCache
 from stat import S_IFDIR, S_IFLNK, S_IFREG
 
 
@@ -16,7 +17,8 @@ class LocalFileSystemTests(unittest.TestCase):
 
         self.lfs = LocalFileSystem()
         self.lfc = LocalFileWriteCache(self.lfs)
-        self.dfs = DumpsterFS(self.lfs, self.lfc)
+        self.lrc = InMemoryReadCache()
+        self.dfs = DumpsterFS(self.lfs, self.lfc, self.lrc)
         self.data_to_write = 'happy datastream readytowriteto_disk'
         self.more_data_to_write = 'Sed ut perspiciatis unde omnis iste natus error sit voluptatem accusantium doloremque laudantium, totam rem aperiam, eaque ipsa quae ab illo inventore veritatis et quasi architecto beatae vitae dicta sunt explicabo. Nemo enim ipsam voluptatem quia voluptas sit aspernatur aut odit aut fugit, sed quia consequuntur magni dolores eos qui ratione voluptatem sequi nesciunt. Neque porro quisquam est, qui dolorem ipsum quia dolor sit amet, consectetur, adipisci velit, sed quia non numquam eius modi tempora incidunt ut labore et dolore magnam aliquam quaerat voluptatem. Ut enim ad minima veniam, quis nostrum exercitationem ullam corporis suscipit laboriosam, nisi ut aliquid ex ea commodi consequatur? Quis autem vel eum iure reprehenderit qui in ea voluptate velit esse quam nihil molestiae consequatur, vel illum qui dolorem eum fugiat quo voluptas nulla pariatur'
 
@@ -204,9 +206,14 @@ class LocalFileSystemTests(unittest.TestCase):
         file_handle = self.lfs.create_new_file_handle('/create_test_filehandle', S_IFREG)
         assert file_handle.fd == 1
 
-    def test_file_appending(self):
-        # create an empty file, than open it, write 3 blocks to it, start reading those blocks
-        # than replace the contents of the second block with new data
+    def test_file_handle_creation(self):
+        # checks wether the filehandle that is created with an open call is also get_next_available_
+        # at write
+        pass
+
+    def test_file_read_from_writecache(self):
+        # a fileread on a file that has not yet been flushed to the storage medium
+        # should not be a problem
         self.dfs.reset_index()
         DataBlock.block_size = 5
         offset1 = 4
@@ -215,12 +222,19 @@ class LocalFileSystemTests(unittest.TestCase):
         buf1 = self.more_data_to_write[0:offset1]
         buf2 = self.more_data_to_write[offset1:offset2]
         buf3 = self.more_data_to_write[offset2:offset3]
-        self.dfs.create_new_file('/blockappending')
+        create_fd = self.dfs.create_new_file('/blockappending')
+        self.dfs.write_file(buf1, create_fd)
+        self.dfs.write_file(buf2, create_fd)
+        self.dfs.write_file(buf3, create_fd)
         fd = self.dfs.open_file('/blockappending')
-        self.dfs.write_file(buf1, fd)
-        self.dfs.write_file(buf2, fd)
-        self.dfs.write_file(buf3, fd)
+        print('fd')
+        print(fd)
         read_result_1 = self.dfs.read_file(fd, 0, 12)
+        print(read_result_1)
+        print(buf1 + buf2 + buf3)
+        #assert read_result_1 == (buf1 + buf2 + buf3)
+
+
 
     def test_open_same_file_twice(self):
         self.dfs.reset_index()
