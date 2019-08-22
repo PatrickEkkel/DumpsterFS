@@ -206,11 +206,6 @@ class LocalFileSystemTests(unittest.TestCase):
         file_handle = self.lfs.create_new_file_handle('/create_test_filehandle', S_IFREG)
         assert file_handle.fd == 1
 
-    def test_file_handle_creation(self):
-        # checks wether the filehandle that is created with an open call is also get_next_available_
-        # at write
-        pass
-
     def test_file_read_from_writecache(self):
         # a fileread on a file that has not yet been flushed to the storage medium
         # should not be a problem
@@ -227,13 +222,36 @@ class LocalFileSystemTests(unittest.TestCase):
         self.dfs.write_file(buf2, create_fd)
         self.dfs.write_file(buf3, create_fd)
         fd = self.dfs.open_file('/blockappending')
-        print('fd')
-        print(fd)
         read_result_1 = self.dfs.read_file(fd, 0, 12)
-        print(read_result_1)
-        print(buf1 + buf2 + buf3)
-        #assert read_result_1 == (buf1 + buf2 + buf3)
+        assert read_result_1 == bytearray((buf1 + buf2 + buf3), encoding='utf-8')
 
+    def test_file_appending_after_flush(self):
+        # create a file, write a few blocks, do a flush to storage medium and than append data,
+        # flushing in between wrrites should not be a problem
+        self.dfs.reset_index()
+
+        DataBlock.block_size = 5
+        offset1 = 4
+        offset2 = 8
+        offset3 = 12
+        buf1 = self.more_data_to_write[0:offset1]
+        buf2 = self.more_data_to_write[offset1:offset2]
+        buf3 = self.more_data_to_write[offset2:offset3]
+        create_fd = self.dfs.create_new_file('/blockappending')
+
+        self.dfs.write_file(buf1, create_fd)
+        self.dfs.write_file(buf2, create_fd)
+        # flush the filesystem to storage medium,
+        self.dfs.flush()
+        fd = self.dfs.open_file('/blockappending')
+        # after flushing append buf3
+        print('appending the buffer')
+        self.dfs.write_file(buf3, create_fd)
+        read_result = self.dfs.read_file(fd, 0, 12)
+        print('buffer: ' + (buf1 + buf2 + buf3))
+        print(read_result)
+
+        assert True
 
 
     def test_open_same_file_twice(self):

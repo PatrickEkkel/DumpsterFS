@@ -39,7 +39,6 @@ class DumpsterNode:
         if self.data_blocks and len(self.data_blocks) > 0:
             return self.data_blocks[0].state
 
-
     def get_next_available_block(self, buffer_length):
         # buffer_length should never exceed max_block_length because this would mean 1 write operation
         # yields multiple blocks, which is something we don't want because it involves more
@@ -165,7 +164,6 @@ class DataBlock:
         self.next_block_location = 'Empty'
         self.storage_method = storage_method
         self.state = DataBlock.NEW_NOT_COMMITTED
-        self.blockpointer = 0
         self.blockpointer = 0
         self.data = None
         # property to keep track of the block_length, self.data is not safe to check, because we

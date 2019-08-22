@@ -68,37 +68,17 @@ class DumpsterFS:
 
         else:
             if existing_file_handle.dfs_filehandle.get_status() == DataBlock.NEW_IN_CACHE:
-                print('dump write cache to read cache')
                 self.logger.debug('filesystem is dirty, dump write cache to read cache')
                 # file to be opened is still in the write cache, so prepare to
                 # read file from writecache
                 dfs_filehandle = existing_file_handle.dfs_filehandle
                 for datablock in dfs_filehandle.get_datablocks_in_writeorder():
                     datablock.data = self._read_next_block(existing_file_handle.fd,datablock)
-                    print(datablock.blockpointer)
 
                 offset = 0
                 length = len(dfs_filehandle.get_base64())
-                print('efd')
-                print(existing_file_handle.fd)
                 self.read_cache.write_file(dfs_filehandle.get_base64(), existing_file_handle.fd,
                                            offset, length)
-
-                # file is loaded from writecache, transfer it to read cache
-
-
-                #self.flush()
-                #index = self._get_index()
-                #result = index.find(path)
-                #print(result)
-                #file_handle = self._read_dfs_file(result, path)  #
-                #offset = 0
-                #length = len(file_handle.dfs_filehandle.get_base64())
-                #self.logger.debug(f'file length in cache: {length}')
-                #self.read_cache.write_file(file_handle.dfs_filehandle.get_base64(), file_handle.fd,
-                #               offset, length)
-                #self._add_fd_to_index(file_handle.dfs_filehandle)
-
                 return existing_file_handle.fd
 
 
@@ -148,10 +128,6 @@ class DumpsterFS:
             block = dfs_handle.get_next_available_block(len(buf))
             block.write(buf)
             self._write_next_block(dfs_handle, fh)
-
-        #print('show dffilehandle after write')
-        #print(file_handle.dfs_filehandle.__dict__)
-        self.filesystem.update_filehandle(file_handle)
 
 
     def flush(self):
@@ -203,6 +179,20 @@ class DumpsterFS:
         file_handle.dfs_filehandle.data_blocks = []
         self.filesystem.update_filehandle(file_handle)
         index.find(path, search_in='lstat_dict')['st_size'] = length
+        return self._update_index(index)
+
+    def link(self, source, target):
+        # lazy implementation and could give problems further on, we just copy the index and create a "hard link"
+        # this way file modifications are not taken into account, if a file is being written we should also update
+        # the hard links that are connected to it.
+        index  = self._get_index()
+        target_lstat = index.find(source, search_in='lstat_dict')
+        source_location = index.find(source)
+        if target_lstat:
+            target_lstat['st_nlink'] = int(target_lstat['st_nlink']) + 1
+            index.add_info(source, target_lstat)
+            index.add(target, source_location)
+            index.add_info(target, target_lstat)
         return self._update_index(index)
 
     def symlink(self, source, target):
@@ -313,6 +303,7 @@ class DumpsterFS:
     def _write_next_block(self, dfs_file, fh):
         block_pointer = dfs_file.block_pointer
         dfs_file.data_blocks[block_pointer].state = DataBlock.READY_NOT_COMMITTED
+        dfs_file.data_blocks[block_pointer].blockpointer = block_pointer
         # write the block to cache and clear the memory,
         self.write_cache.write(dfs_file.data_blocks[block_pointer].data, block_pointer, fh)
         dfs_file.data_blocks[block_pointer].state = DataBlock.NEW_IN_CACHE

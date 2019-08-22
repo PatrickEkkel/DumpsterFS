@@ -5,6 +5,7 @@ from dumpsterfs import DumpsterFS
 from filesystems.lfs import LocalFileSystem
 from filesystems.hastebin import HasteBinFileSystem
 from caching.lfs_write_cache import LocalFileWriteCache
+from caching.inmemory_read_cache import InMemoryReadCache
 import os
 import sys
 import time
@@ -26,8 +27,9 @@ class FuseDFS(LoggingMixIn, Operations):
         else:
             selected_filesystem = LocalFileSystem()
 
-        lfc = LocalFileWriteCache(LocalFileSystem())
-        self.dfs = DumpsterFS(selected_filesystem,lfc)
+        local_write_cache = LocalFileWriteCache(LocalFileSystem())
+        local_read_cache = InMemoryReadCache()
+        self.dfs = DumpsterFS(selected_filesystem,local_write_cache, local_read_cache)
         self.truncated_fd = -1
 
     # Filesystem methods
@@ -85,7 +87,6 @@ class FuseDFS(LoggingMixIn, Operations):
 
     def symlink(self, name, target):
         logger.debug(f'symlink: name: {name} target: {target}')
-        # just put slash in front of it, quick hack to get symlinks working
         self.dfs.symlink(name, target)
 
     def rename(self, old, new):
@@ -93,9 +94,9 @@ class FuseDFS(LoggingMixIn, Operations):
         self.dfs.rename(old, new)
 
     def link(self, target, name):
-        print('link')
-        return os.link(self._full_path(target), self._full_path(name))
-
+        logger.debug(f'link: target: {target} name: {name}')
+        self.dfs.link(name, target)
+        
     def utimens(self, path, times=None):
         logger.debug(f'utimes:  path:  {path} times: {times}')
         now = time.time()
