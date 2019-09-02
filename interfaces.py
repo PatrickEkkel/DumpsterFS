@@ -38,6 +38,10 @@ class ReadCachingMethod:
         pass
 
     @abstractmethod
+    def append_file(self,data,fd, offset, length):
+        pass
+
+    @abstractmethod
     def exists(self, fd):
         pass
 

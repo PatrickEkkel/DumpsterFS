@@ -3,6 +3,7 @@ from interfaces import StorageMethod
 from adapters.localfilesystem import LocalDataReaderWriter
 from datatypes import FileHandle, DumpsterNode, DataBlock
 
+
 class LocalFileSystem(StorageMethod):
 
     def __init__(self):

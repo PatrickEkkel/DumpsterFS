@@ -33,6 +33,11 @@ class DumpsterNode:
             result += block.data
         return result
 
+    def clear(self):
+        # clear the node of all file contents, leave metadata intact.
+        self.data_blocks = []
+        self.block_pointer = 0
+
     def get_status(self):
         # the state of the first block represents the state of the whole file (for now anyways)
         # later this may change, but for now this quick and dirty implementation is sufficient

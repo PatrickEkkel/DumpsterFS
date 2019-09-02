@@ -67,7 +67,7 @@ class FuseDFS(LoggingMixIn, Operations):
 
     def mknod(self, path, mode, dev):
         print('mknod')
-        print   (path)
+        print(path)
         return os.mknod(self._full_path(path), mode, dev)
 
     def rmdir(self, path):
@@ -96,7 +96,7 @@ class FuseDFS(LoggingMixIn, Operations):
     def link(self, target, name):
         logger.debug(f'link: target: {target} name: {name}')
         self.dfs.link(name, target)
-        
+
     def utimens(self, path, times=None):
         logger.debug(f'utimes:  path:  {path} times: {times}')
         now = time.time()

@@ -227,7 +227,7 @@ class LocalFileSystemTests(unittest.TestCase):
 
     def test_file_appending_after_flush(self):
         # create a file, write a few blocks, do a flush to storage medium and than append data,
-        # flushing in between wrrites should not be a problem
+        # flushing in between writes should not be a problem
         self.dfs.reset_index()
 
         DataBlock.block_size = 5
@@ -245,13 +245,18 @@ class LocalFileSystemTests(unittest.TestCase):
         self.dfs.flush()
         fd = self.dfs.open_file('/blockappending')
         # after flushing append buf3
-        print('appending the buffer')
-        self.dfs.write_file(buf3, create_fd)
+        self.dfs.write_file(buf3, fd)
+        #self.dfs.flush()
         read_result = self.dfs.read_file(fd, 0, 12)
-        print('buffer: ' + (buf1 + buf2 + buf3))
+        # file has been flushed partially, and now we read directly from cache
+        assert read_result == bytearray((buf1 + buf2 + buf3), encoding='utf-8')
+        # flush and release
+        self.dfs.flush()
+        self.dfs.release(fd)
+        fd = self.dfs.open_file('/blockappending')
+        read_result = self.dfs.read_file(fd, 0, 12)
         print(read_result)
-
-        assert True
+        # reopen the file
 
 
     def test_open_same_file_twice(self):

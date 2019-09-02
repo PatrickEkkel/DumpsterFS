@@ -12,8 +12,8 @@ class LocalFileWriteCache(WriteCachingMethod):
 
     def delete(self, bp, fh):
         filename = f'cachefile__{fh}__{bp}'
-
-        self.data_reader_writer.delete_file(filename)
+        if self.data_reader_writer.file_exists(filename):
+            self.data_reader_writer.delete_file(filename)
 
     def write(self, data, bp, fh):
         filename = f'cachefile__{fh}__{bp}'

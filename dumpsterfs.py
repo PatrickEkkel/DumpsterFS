@@ -9,7 +9,7 @@ import numpy as np
 import logging
 from utils import is_bytes
 from logger import Logging
-from datatypes import DataBlock, Index, DumpsterNode
+from datatypes import DataBlock, Index, DumpsterNode, FileHandle
 from interfaces import StorageMethod, DataReaderWriter
 from filesystems.lfs import LocalFileSystem
 from caching.lfs_write_cache import LocalFileWriteCache
@@ -125,9 +125,27 @@ class DumpsterFS:
 
         if file_handle is not None:
             dfs_handle = file_handle.dfs_filehandle
-            block = dfs_handle.get_next_available_block(len(buf))
-            block.write(buf)
-            self._write_next_block(dfs_handle, fh)
+            if dfs_handle.get_status() == DataBlock.PERSISTED_ON_STORAGE:
+                index = self._get_index()
+
+                location = index.find(dfs_handle.path)
+                #offset = index.find(dfs_handle.path,search_in='lstat_dict')['st_size']
+                # file is already persisted, so we need to rewrite it completely
+                # to the storage medium, so that is what we are going to do,
+                # using a linked list to store chunks is a major design flaw
+                # and it is not performant in any way
+
+                # read file from cache in max chunk sizes
+                file_handle = self._read_dfs_file(location, dfs_handle.path, file_handle=file_handle)
+                block = file_handle.dfs_filehandle.get_next_available_block(len(buf))
+                block.write(buf)
+                self._write_next_block(file_handle.dfs_filehandle, fh)
+                # because we are appending an existing file, also append to the read cache
+                self.read_cache.append_file(buf,fh,0,len(buf))
+            else:
+                block = dfs_handle.get_next_available_block(len(buf))
+                block.write(buf)
+                self._write_next_block(dfs_handle, fh)
 
 
     def flush(self):
@@ -139,14 +157,16 @@ class DumpsterFS:
         for fd, dfs_handle in cached_files.items():
             index = self._get_index()
             dfs_handle.path = index.get_fd(fd)
+            # TODO: implement something that detects "partial state" and deal with it
             dfs_handle.block_start_location = self._write_dfs_file(dfs_handle, sort_blocks=True)
             file_stat = index.find(dfs_handle.path, search_in='lstat_dict')
             if file_stat:
                 file_stat['st_size'] = dfs_handle.length
                 index.add_info(dfs_handle.path, file_stat)
-
+            file_handle = FileHandle(fd, dfs_handle)
+            self.filesystem.update_filehandle(file_handle)
             self._add_filenode_to_index(dfs_handle)
-            self.filesystem.release_file_handle(fd)
+            #self.filesystem.release_file_handle(fd)
             # remove all cachefiles associated with the filedescriptor
             block_counter = dfs_handle.block_pointer
             while block_counter != -1:
@@ -277,13 +297,18 @@ class DumpsterFS:
         index.add_info(file.path, file.lstat)
         return self._update_index(index)
 
-    def _read_dfs_file(self, location, path=None):
-        file_handle = self.filesystem.create_new_file_handle(path, fuse_helpers.S_IFREG)
+    def _read_dfs_file(self, location, path=None,file_handle=None):
+        if not file_handle:
+            file_handle = self.filesystem.create_new_file_handle(path, fuse_helpers.S_IFREG)
+        else:
+            file_handle.dfs_filehandle.clear()
+            # reusing existing filehandle, clear everything
         # get the first datablock so we can start reconstructing the file
         first_block = self.filesystem.read(location)
         if first_block:
             first_block.update_block_info()
             file_handle.dfs_filehandle.data_blocks.append(first_block)
+            file_handle.dfs_filehandle.block_pointer += 1
 
             current_block = first_block
             if current_block.next_block_location and current_block.next_block_location != DataBlock.empty_block_pointer:
@@ -293,6 +318,7 @@ class DumpsterFS:
                     self.logger.debug(f'block_read: {current_block.next_block_location}')
 
                     file_handle.dfs_filehandle.data_blocks.append(current_block)
+                    file_handle.dfs_filehandle.block_pointer += 1
 
                     if not current_block.next_block_location or current_block.next_block_location == DataBlock.empty_block_pointer:
                         self.logger.debug('file read finished')

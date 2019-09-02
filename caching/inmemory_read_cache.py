@@ -16,6 +16,9 @@ class InMemoryReadCache(ReadCachingMethod):
     def write_file(self, data, fd, offset, length):
         self.filecache_dict[fd] = data[offset:length]
 
+    def append_file(self, data, fd, offset,length):
+        self.filecache_dict[fd] = self.filecache_dict[fd] + bytearray(data[offset:length],encoding='utf-8')
+
     def exists(self, fd):
         result = self.filecache_dict.get([fd])
         return result
