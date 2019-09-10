@@ -38,6 +38,35 @@ class DumpsterNode:
         self.data_blocks = []
         self.block_pointer = 0
 
+    def get_datablocks_by_state(self,state):
+        result = []
+        for db in self.data_blocks:
+            if db.state == state:
+                result.append(db)
+
+        return result
+    def append_datablocks(self,datablocks):
+        for db in datablocks:
+            # self.block_pointer += 1
+            db.blockpointer = self.block_pointer
+            self.data_blocks.append(db)
+
+    def set_filestate(self,state):
+        for db in self.data_blocks:
+            db.state = state
+
+
+    def is_dangling(self):
+        stored_on_storage_medium = False
+        stored_in_write_cache = False
+        for db in self.data_blocks:
+            if db.state == DataBlock.PERSISTED_ON_STORAGE:
+                stored_on_storage_medium = True
+            elif db.state == DataBlock.NEW_IN_CACHE:
+                stored_in_write_cache = True
+
+        return stored_on_storage_medium and stored_in_write_cache
+
     def get_status(self):
         # the state of the first block represents the state of the whole file (for now anyways)
         # later this may change, but for now this quick and dirty implementation is sufficient

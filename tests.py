@@ -234,9 +234,11 @@ class LocalFileSystemTests(unittest.TestCase):
         offset1 = 4
         offset2 = 8
         offset3 = 12
+        offset4 = 15
         buf1 = self.more_data_to_write[0:offset1]
         buf2 = self.more_data_to_write[offset1:offset2]
         buf3 = self.more_data_to_write[offset2:offset3]
+        buf4 = self.more_data_to_write[offset3:offset4]
         create_fd = self.dfs.create_new_file('/blockappending')
 
         self.dfs.write_file(buf1, create_fd)
@@ -251,12 +253,18 @@ class LocalFileSystemTests(unittest.TestCase):
         # file has been flushed partially, and now we read directly from cache
         assert read_result == bytearray((buf1 + buf2 + buf3), encoding='utf-8')
         # flush and release
+        print('second flush')
         self.dfs.flush()
-        self.dfs.release(fd)
+        #self.dfs.release(fd)
         fd = self.dfs.open_file('/blockappending')
         read_result = self.dfs.read_file(fd, 0, 12)
+        print(bytearray((buf1 + buf2 + buf3), encoding='utf-8'))
         print(read_result)
-        # reopen the file
+        #assert read_result == bytearray((buf1 + buf2 + buf3), encoding='utf-8')
+        fd = self.dfs.open_file('/blockappending')
+        self.dfs.write_file(buf4, fd)
+        read_result = self.dfs.read_file(fd, 0, (12 + len(buf4)))
+        print(read_result)
 
 
     def test_open_same_file_twice(self):

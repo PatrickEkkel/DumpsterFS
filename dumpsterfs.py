@@ -142,6 +142,8 @@ class DumpsterFS:
                 self._write_next_block(file_handle.dfs_filehandle, fh)
                 # because we are appending an existing file, also append to the read cache
                 self.read_cache.append_file(buf,fh,0,len(buf))
+
+                self.filesystem.update_filehandle(file_handle)
             else:
                 block = dfs_handle.get_next_available_block(len(buf))
                 block.write(buf)
@@ -157,8 +159,21 @@ class DumpsterFS:
         for fd, dfs_handle in cached_files.items():
             index = self._get_index()
             dfs_handle.path = index.get_fd(fd)
-            # TODO: implement something that detects "partial state" and deal with it
-            dfs_handle.block_start_location = self._write_dfs_file(dfs_handle, sort_blocks=True)
+
+            fh_complete = self.filesystem.get_file_handle(fd)
+            # check if file is partially flushed, if so we need to read the file from cache
+            # and then persist it again
+            if fh_complete.dfs_filehandle.is_dangling():
+                location = index.find(dfs_handle.path)
+                loaded_file =  self._read_dfs_file(location, path=dfs_handle.path)
+                datablocks_to_append = dfs_handle.get_datablocks_by_state(DataBlock.PERSISTED_IN_CACHE)
+                loaded_file.dfs_filehandle.append_datablocks(datablocks_to_append)
+                loaded_file.dfs_filehandle.fd = fd
+                dfs_handle.block_start_location = self._write_dfs_file(loaded_file.dfs_filehandle, sort_blocks=True)
+
+            else:
+                dfs_handle.block_start_location = self._write_dfs_file(dfs_handle, sort_blocks=True)
+
             file_stat = index.find(dfs_handle.path, search_in='lstat_dict')
             if file_stat:
                 file_stat['st_size'] = dfs_handle.length
